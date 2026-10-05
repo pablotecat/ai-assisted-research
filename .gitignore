@@ -8,3 +8,7 @@ agent-settings.json.lock/
 .env.*
 *.log
 /informes-agente/
+/apm_modules/
+/build/
+/.opencode/
+/.agents/

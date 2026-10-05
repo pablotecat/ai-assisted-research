@@ -8,11 +8,29 @@ Versión ligera del flujo de planificación: responde dudas del día a día sobr
 | Agente `lector-codigo` | Investiga el workspace indexado con Codegraph. |
 | Agente `lector-docs` | Examina documentos locales y cita las fuentes. |
 
-## Instalación
+## Instalación en OpenCode
 
-Copia `agent/`, `skill/`, `plugin/`, `tools/`, `package.json`, `opencode.json` y `agent-settings.example.json` a la carpeta `.opencode/` del proyecto anfitrión. Si actualizas una instalación existente, elimina de `.opencode/agent/` los archivos `agente-coordinador.md`, `agente-codigo.md` y `agente-documentacion.md`. Ejecuta `npm install` en `.opencode/` y reinicia OpenCode. Si ya existe `.opencode/opencode.json`, conserva sus opciones y añade `"subagent_depth": 4` para permitir la delegación. Si vas a investigar código, instala Codegraph e indexa el workspace; para convertir otros formatos documentales, prepara `markitdown`.
+Necesitas [OpenCode](https://opencode.ai/docs/), [APM](https://microsoft.github.io/apm/getting-started/installation/), [Node.js 24 o posterior](https://nodejs.org/en/download) y [Git](https://git-scm.com/downloads) (APM lo utiliza para descargar paquetes). Abre una terminal en la **carpeta raíz del proyecto** donde usarás los agentes, no en `.opencode/`, y ejecuta:
 
-Copia `agent-settings.example.json` como `.opencode/agent-settings.json` y configura `proyecto.repositorio` (ruta absoluta del workspace) y/o `proyecto.carpetasDocumentales` (rutas absolutas) según las fuentes de tu consulta. Puedes dejar los valores vacíos para que `pregunta` solicite solo los imprescindibles y guarde los que confirmes. Las claves existentes `agentes.coordinador`, `agentes.codigo` y `agentes.documentacion` siguen configurando la skill y ambos lectores, respectivamente. `especialistasPermitidos` restringe las delegaciones; `guardarEntregablesEnSesion` permite desactivar el guardado para cada componente. La carpeta de sesiones se configura con `sesiones.carpetaRaiz`, relativa a la raíz del proyecto anfitrión (por defecto `informes-agente/sesiones/`). Ignora `agent-settings.json` y `informes-agente/` en el Git del anfitrión si no quieres versionar los datos locales.
+```sh
+apm install pablotecat/ai-assisted-research --target opencode
+node apm_modules/pablotecat/ai-assisted-research/scripts/setup-opencode.mjs
+```
+
+APM instala los agentes y la skill. El segundo comando configura los plugins, herramientas y dependencias npm para OpenCode; no necesitas descargar este repositorio. Después abre o reinicia OpenCode en esa misma carpeta e invoca la skill `pregunta` desde el agente principal.
+
+**Actualizar:** desde la misma carpeta, ejecuta:
+
+```sh
+apm update --yes --target opencode
+node apm_modules/pablotecat/ai-assisted-research/scripts/setup-opencode.mjs
+```
+
+Si antes instalaste copiando archivos manualmente, elimina `lector-codigo.md`, `lector-docs.md`, `agente-coordinador.md`, `agente-codigo.md` y `agente-documentacion.md` de `.opencode/agent/` y `pregunta/` de `.opencode/skill/` tras instalar con APM, para evitar duplicados. Conserva `.opencode/agent-settings.json`: el instalador no sobrescribe tus ajustes.
+
+Configura allí `proyecto.repositorio` (ruta absoluta del workspace) y/o `proyecto.carpetasDocumentales` (rutas absolutas) según las fuentes de tu consulta. Puedes dejar los valores vacíos para que `pregunta` solicite solo los imprescindibles y guarde los que confirmes. Las claves existentes `agentes.coordinador`, `agentes.codigo` y `agentes.documentacion` siguen configurando la skill y ambos lectores, respectivamente. `especialistasPermitidos` restringe las delegaciones; `guardarEntregablesEnSesion` permite desactivar el guardado para cada componente. La carpeta de sesiones se configura con `sesiones.carpetaRaiz`, relativa a la raíz del proyecto anfitrión (por defecto `informes-agente/sesiones/`). Ignora `agent-settings.json` y `informes-agente/` en el Git del anfitrión si no quieres versionar los datos locales.
+
+Para consultas de código, instala Codegraph e indexa el proyecto. Para convertir otros formatos de documentos, instala MarkItDown.
 
 ## Uso
 
