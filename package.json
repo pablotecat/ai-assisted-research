@@ -1,0 +1,9 @@
+{
+  "type": "module",
+  "dependencies": {
+    "@opencode-ai/plugin": "1.18.30"
+  },
+  "scripts": {
+    "test": "node --test *.test.ts"
+  }
+}

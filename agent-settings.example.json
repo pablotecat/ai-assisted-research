@@ -1,0 +1,13 @@
+{
+  "proyecto": {
+    "repositorio": "",
+    "referencia": "",
+    "carpetasDocumentales": []
+  },
+  "agentes": {
+    "coordinador": { "maxRepreguntasEspecialistas": 2, "especialistasPermitidos": ["codigo", "documentacion"], "guardarEntregablesEnSesion": true },
+    "codigo": { "guardarEntregablesEnSesion": true },
+    "documentacion": { "guardarEntregablesEnSesion": true }
+  },
+  "sesiones": { "carpetaRaiz": "informes-agente/sesiones" }
+}
