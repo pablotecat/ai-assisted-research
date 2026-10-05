@@ -1,5 +1,5 @@
 import type { Plugin } from "@opencode-ai/plugin"
-import { readAgentSettings } from "../tools/agent_settings.ts"
+import { isPrimaryAgent, readAgentSettings, registerPrimaryAgent } from "../tools/agent_settings.ts"
 import { setSessionResolver } from "../tools/session_store.ts"
 
 export default (async ({ client, directory }) => {
@@ -19,32 +19,27 @@ export default (async ({ client, directory }) => {
   }
   setSessionResolver(identity)
   return {
-    config: async (config) => {
-      const settings = await readAgentSettings()
-      const allowed = settings.agentes.coordinador.especialistasPermitidos
-      const coordinator = config.agent?.["agente-coordinador"]
-      if (coordinator) {
-        coordinator.permission ??= {}
-        if (typeof coordinator.permission === "object") {
-          coordinator.permission.task = { "*": "deny",
-            "agente-codigo": allowed.includes("codigo") ? "allow" : "deny",
-            "agente-documentacion": allowed.includes("documentacion") ? "allow" : "deny" }
-        }
+    config: (config) => {
+      for (const [name, agent] of Object.entries(config.agent ?? {})) {
+        if (agent.mode === "primary" || agent.mode === "all") registerPrimaryAgent(name)
       }
     },
     "tool.execute.before": async (input, output) => {
       const agent = (await identity(input.sessionID)).agent
-      if (!["agente-coordinador", "agente-codigo", "agente-documentacion"].includes(agent)) return
-      if (["edit", "write", "apply_patch"].includes(input.tool)) throw new Error("Escritura local restringida a los publicadores de sesión")
-      if (input.tool === "task" && agent === "agente-coordinador") {
-        const allowed = (await readAgentSettings()).agentes.coordinador.especialistasPermitidos
-        const target = output.args?.subagent_type
-        if (!allowed.some((name) => target === `agente-${name}`)) throw new Error("Especialista deshabilitado en agent-settings.json")
+      if (!isPrimaryAgent(agent) && !["lector-codigo", "lector-docs"].includes(agent)) return
+      if (isPrimaryAgent(agent)) {
+        if (input.tool === "task" && ["lector-codigo", "lector-docs"].includes(output.args?.subagent_type)) {
+          const allowed = (await readAgentSettings()).agentes.coordinador.especialistasPermitidos
+          const name = output.args.subagent_type === "lector-codigo" ? "codigo" : "documentacion"
+          if (!allowed.includes(name)) throw new Error("Especialista deshabilitado en agent-settings.json")
+        }
+        return
       }
+      if (["edit", "write", "apply_patch"].includes(input.tool)) throw new Error("Escritura local restringida a los publicadores de sesión")
       if (input.tool === "bash") {
         const command = output.args?.command
-        const code = agent === "agente-codigo" && /^(?:codegraph (?:status|query|explore|context|node|callers|callees|files)\b|git (?:status|rev-parse|branch --show-current|log|show|diff|ls-tree|cat-file|blame|grep)\b)/.test(command)
-        const docs = agent === "agente-documentacion" && /^markitdown (?:--version|--help|"[^"\r\n]+")$/.test(command)
+        const code = agent === "lector-codigo" && /^(?:codegraph (?:status|query|explore|context|node|callers|callees|files)\b|git (?:status|rev-parse|branch --show-current|log|show|diff|ls-tree|cat-file|blame|grep)\b)/.test(command)
+        const docs = agent === "lector-docs" && /^markitdown (?:--version|--help|"[^"\r\n]+")$/.test(command)
         if (typeof command !== "string" || !(code || docs) || /[;|&><`$\r\n]|\s(?:--output(?:=|\s)|--exec(?:=|\s)|--git-dir(?:=|\s)|-o(?:\s|$)|-c\s)/i.test(command))
           throw new Error("Comando de shell no permitido para estos agentes")
       }

@@ -1,20 +1,23 @@
 import { createHash, randomUUID } from "node:crypto"
 import { lstat, mkdir, readFile, realpath, rename, rm, writeFile } from "node:fs/promises"
 import { basename, isAbsolute, join, relative, resolve, sep } from "node:path"
-import { readAgentSettings, sessionRoot, type AgentName } from "./agent_settings.ts"
+import { isPrimaryAgent, readAgentSettings, sessionRoot, type AgentName } from "./agent_settings.ts"
 
 export type Identity = { id: string; parentID?: string; agent: string; title: string; created: number; directory: string }
 export type Resolver = (id: string, messageID?: string) => Promise<Identity>
 let resolver: Resolver | undefined
 export function setSessionResolver(value: Resolver) { resolver = value }
 
-const agentNames: Record<string, AgentName> = {
-  "agente-coordinador": "coordinador", "agente-codigo": "codigo", "agente-documentacion": "documentacion",
+type Role = "pregunta" | Exclude<AgentName, "coordinador">
+const agentNames: Record<string, Role> = {
+  "lector-codigo": "codigo", "lector-docs": "documentacion",
 }
-const childOf: Record<AgentName, AgentName[]> = {
-  coordinador: [], codigo: ["coordinador"], documentacion: ["coordinador", "documentacion"],
+function roleOf(name: string): Role | undefined { return agentNames[name] ?? (isPrimaryAgent(name) ? "pregunta" : undefined) }
+const childOf: Record<Role, Role[]> = {
+  pregunta: [], codigo: ["pregunta"], documentacion: ["pregunta", "documentacion"],
 }
-type Entry = { parent?: string; agent: AgentName; folder: string }
+const labels: Record<Role, string> = { pregunta: "pregunta", codigo: "lector-codigo", documentacion: "lector-docs" }
+type Entry = { parent?: string; agent: Role; folder: string }
 type State = { root: string; entries: Record<string, Entry>; deliveries: string[]; sources: string[]; decisions: string[] }
 
 export function slug(value: string) {
@@ -61,15 +64,15 @@ async function chain(id: string, messageID: string | undefined, get: Resolver) {
     visited.add(current)
     const node = await get(current, current === id ? messageID : undefined)
     if (node.id !== current) throw new Error("No se pudo verificar la sesión")
-    if (!agentNames[node.agent] && nodes.length) break
-    if (!agentNames[node.agent]) throw new Error("No se pudo verificar el agente")
+    if (!roleOf(node.agent) && nodes.length) break
+    if (!roleOf(node.agent)) throw new Error("No se pudo verificar el agente")
     if (nodes.length && nodes[0].directory !== node.directory) throw new Error("Proyecto de sesión distinto")
     nodes.push(node)
     current = node.parentID
   }
   nodes.reverse()
   for (let i = 1; i < nodes.length; i++) {
-    if (!childOf[agentNames[nodes[i].agent]].includes(agentNames[nodes[i - 1].agent]))
+    if (!childOf[roleOf(nodes[i].agent)!].includes(roleOf(nodes[i - 1].agent)!))
       throw new Error("Delegación no autorizada")
   }
   return nodes
@@ -90,14 +93,14 @@ function folderFor(state: State, nodes: Identity[], index: number) {
   const node = nodes[index]
   const existing = state.entries[node.id]
   if (existing) {
-    if (existing.parent !== node.parentID || existing.agent !== agentNames[node.agent]) throw new Error("Propietario de carpeta diferente")
+    if (existing.parent !== node.parentID || existing.agent !== roleOf(node.agent)) throw new Error("Propietario de carpeta diferente")
     return existing.folder
   }
   const parent = index ? state.entries[nodes[index - 1].id].folder : ""
   const count = Object.values(state.entries).filter((entry) => entry.parent === node.parentID).length + 1
-  const label = `${String(count).padStart(2, "0")}-${agentNames[node.agent]}${index ? `__${slug(node.title)}` : ""}`
+  const label = `${String(count).padStart(2, "0")}-${labels[roleOf(node.agent)!]}${index ? `__${slug(node.title)}` : ""}`
   const folder = parent ? join(parent, label) : label
-  state.entries[node.id] = { parent: node.parentID, agent: agentNames[node.agent], folder }
+  state.entries[node.id] = { parent: node.parentID, agent: roleOf(node.agent)!, folder }
   return folder
 }
 
@@ -139,10 +142,11 @@ export async function publishSession(input: {
   const nodes = await chain(input.sessionID, input.messageID, options.get ?? resolver ?? (() => { throw new Error("Adaptador de sesión no disponible") }))
   if (nodes.at(-1)!.agent !== input.agent) throw new Error("Autor de publicación diferente")
   const settings = await readAgentSettings(options.settingsPath)
-  if (!settings.agentes[agentNames[input.agent]].guardarEntregablesEnSesion) return { guardado: false }
-  if (input.agent === "agente-codigo" && !settings.agentes.coordinador.especialistasPermitidos.includes("codigo") && nodes.length > 1)
+  const role = roleOf(input.agent)!
+  if (!settings.agentes[role === "pregunta" ? "coordinador" : role].guardarEntregablesEnSesion) return { guardado: false }
+  if (input.agent === "lector-codigo" && !settings.agentes.coordinador.especialistasPermitidos.includes("codigo") && nodes.length > 1)
     throw new Error("Especialista deshabilitado")
-  if (input.agent === "agente-documentacion" && !settings.agentes.coordinador.especialistasPermitidos.includes("documentacion") && nodes.some((n) => n.agent === "agente-coordinador"))
+  if (input.agent === "lector-docs" && !settings.agentes.coordinador.especialistasPermitidos.includes("documentacion") && nodes.some((n) => isPrimaryAgent(n.agent)))
     throw new Error("Especialista deshabilitado")
 
   const root = options.root ?? sessionRoot(settings)

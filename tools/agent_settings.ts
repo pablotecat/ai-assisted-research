@@ -28,6 +28,9 @@ const settingsSchema = tool.schema.object({
 
 export type AgentSettings = ReturnType<typeof settingsSchema.parse>
 export type AgentName = keyof AgentSettings["agentes"]
+const primaryAgents = new Set(["build", "plan"])
+export const isPrimaryAgent = (name: string) => primaryAgents.has(name)
+export function registerPrimaryAgent(name: string) { primaryAgents.add(name) }
 
 export async function readAgentSettings(path = settingsPath): Promise<AgentSettings> {
   try {
@@ -81,8 +84,8 @@ export default tool({
   description: "Lee la configuración común del proyecto y sus agentes; tras confirmación guarda los datos de proyecto aún vacíos.",
   args: { action: tool.schema.enum(["read", "saveMissing"]), values: project.partial().strict().optional() },
   async execute(args, context) {
-    if (!["agente-coordinador", "agente-codigo", "agente-documentacion"].includes(context.agent)) throw new Error("Agente no autorizado")
-    if (args.action === "saveMissing" && (context.agent !== "agente-coordinador" || !args.values)) throw new Error("Solo el coordinador guarda datos confirmados")
+    if (!isPrimaryAgent(context.agent) && !["lector-codigo", "lector-docs"].includes(context.agent)) throw new Error("Agente no autorizado")
+    if (args.action === "saveMissing" && (!isPrimaryAgent(context.agent) || !args.values)) throw new Error("Solo pregunta guarda datos confirmados")
     return JSON.stringify(args.action === "read" ? await readAgentSettings() : await saveMissingProject(args.values!))
   },
 })

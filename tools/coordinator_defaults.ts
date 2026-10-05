@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process"
 import { isAbsolute } from "node:path"
 import { tool } from "@opencode-ai/plugin"
-import { readAgentSettings, saveMissingProject } from "./agent_settings.ts"
+import { isPrimaryAgent, readAgentSettings, saveMissingProject } from "./agent_settings.ts"
 
 const values = tool.schema.object({
   LOCAL_DOCUMENT_ROOTS: tool.schema.array(tool.schema.string().refine(isAbsolute)).min(1),
@@ -20,7 +20,7 @@ export default tool({
   description: "Consulta los valores del proyecto y la rama actual; guarda únicamente valores aún vacíos confirmados por el usuario.",
   args: { action: tool.schema.enum(["read", "saveMissing"]), values: values.optional(), workspace: tool.schema.string().optional() },
   async execute(args, context) {
-    if (context.agent !== "agente-coordinador") throw new Error("Solo agente-coordinador puede gestionar estos valores")
+    if (!isPrimaryAgent(context.agent)) throw new Error("Solo el agente principal puede gestionar estos valores")
     if (args.action === "saveMissing" && !args.values) throw new Error("Faltan valores confirmados")
     const mapped = args.values && {
       ...(args.values.WORKSPACE && { repositorio: args.values.WORKSPACE }),
