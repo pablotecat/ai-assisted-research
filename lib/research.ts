@@ -1,26 +1,71 @@
 import { createHash, randomUUID } from "node:crypto"
-import { lstat, mkdir, readFile, realpath, rename, rm, writeFile } from "node:fs/promises"
+import { link, lstat, mkdir, readFile, realpath, rename, rm, writeFile } from "node:fs/promises"
 import { basename, isAbsolute, join, relative, resolve, sep } from "node:path"
-import { isPrimaryAgent, readAgentSettings, sessionRoot, type AgentName } from "./agent_settings.ts"
+import { tool } from "@opencode-ai/plugin"
 
-export type Identity = { id: string; parentID?: string; agent: string; title: string; created: number; directory: string }
+const nonEmpty = tool.schema.string().trim().min(1)
+const board = tool.schema.object({
+  proveedor: tool.schema.enum(["", "jira", "azdo", "github"]),
+  url: tool.schema.string().refine((s) => !s || (() => { try { return new URL(s).protocol === "https:" } catch { return false } })(), "URL HTTPS requerida"),
+}).strict().refine((b) => Boolean(b.proveedor) === Boolean(b.url), "Indica proveedor y URL juntos")
+export const projectSchema = tool.schema.object({
+  repositorio: tool.schema.string().refine((s) => !s || isAbsolute(s)),
+  referencia: tool.schema.string(),
+  carpetasDocumentales: tool.schema.array(nonEmpty.refine(isAbsolute)),
+  board,
+}).strict()
+const permitted = tool.schema.array(tool.schema.enum(["codigo", "documentacion"]))
+  .min(1).max(2).refine((v) => new Set(v).size === v.length, "Especialistas repetidos")
+const saved = tool.schema.object({ guardarEntregablesEnSesion: tool.schema.boolean() }).strict()
+const settingsSchema = tool.schema.object({
+  proyecto: projectSchema,
+  skills: tool.schema.object({
+    pregunta: saved.extend({ maxRepreguntasEspecialistas: tool.schema.number().int().min(0), especialistasPermitidos: permitted }),
+    "lee-codigo": saved,
+    "lee-docs": saved,
+  }).strict(),
+  sesiones: tool.schema.object({ carpetaRaiz: nonEmpty.refine((s) => !isAbsolute(s) && !s.includes(":") && s.split(/[\\/]/).every((part) => part && part !== ".." && part !== "."), "Ruta relativa dentro del proyecto") }).strict(),
+}).strict()
+export type ResearchSettings = ReturnType<typeof settingsSchema.parse>
+
+export async function readSettings(path: string): Promise<ResearchSettings> {
+  return settingsSchema.parse(JSON.parse(await readFile(path, "utf8")))
+}
+
+export async function saveMissingProject(values: Partial<ResearchSettings["proyecto"]>, path: string) {
+  const proposed = projectSchema.partial().strict().parse(values)
+  return locked(`${path}.lock`, async () => {
+    const current = await readSettings(path)
+    const missing = Object.fromEntries(Object.entries(proposed).filter(([key]) => {
+      const value = current.proyecto[key as keyof typeof current.proyecto]
+      return !value || (Array.isArray(value) && !value.length) || (key === "board" && !current.proyecto.board.url)
+    }))
+    if (!Object.keys(missing).length) return current
+    const next = settingsSchema.parse({ ...current, proyecto: { ...current.proyecto, ...missing } })
+    const temp = `${path}.${randomUUID()}.tmp`
+    try {
+      await writeFile(temp, JSON.stringify(next, null, 2) + "\n", { flag: "wx" })
+      if (JSON.stringify(current) !== JSON.stringify(await readSettings(path))) throw new Error("La configuración cambió durante el guardado")
+      await replaceFile(temp, path)
+    } finally { await rm(temp, { force: true }) }
+    return next
+  })
+}
+
+export type ReaderSkill = "lee-codigo" | "lee-docs"
+export type Identity = { id: string; parentID?: string; agent: string; primary?: boolean; skill?: ReaderSkill; title: string; created: number; directory: string }
 export type Resolver = (id: string, messageID?: string) => Promise<Identity>
-let resolver: Resolver | undefined
-export function setSessionResolver(value: Resolver) { resolver = value }
 
-type Role = "pregunta" | Exclude<AgentName, "coordinador">
-const agentNames: Record<string, Role> = {
-  "lector-codigo": "codigo", "lector-docs": "documentacion",
+type Role = "pregunta" | "codigo"
+function roleOf(node: Identity): Role | undefined {
+  if (node.primary) return "pregunta"
+  return node.agent === "explore" && node.skill === "lee-codigo" ? "codigo" : undefined
 }
-function roleOf(name: string): Role | undefined { return agentNames[name] ?? (isPrimaryAgent(name) ? "pregunta" : undefined) }
-const childOf: Record<Role, Role[]> = {
-  pregunta: [], codigo: ["pregunta"], documentacion: ["pregunta", "documentacion"],
-}
-const labels: Record<Role, string> = { pregunta: "pregunta", codigo: "lector-codigo", documentacion: "lector-docs" }
+const labels: Record<Role, string> = { pregunta: "pregunta", codigo: "lee-codigo" }
 type Entry = { parent?: string; agent: Role; folder: string }
-type State = { root: string; entries: Record<string, Entry>; deliveries: string[]; sources: string[]; decisions: string[] }
+type State = { root: string; entries: Record<string, Entry>; deliveries: string[]; sources: string[] }
 
-export function slug(value: string) {
+function slug(value: string) {
   return value.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
     .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48).replace(/-$/g, "") || "consulta"
 }
@@ -60,19 +105,19 @@ async function chain(id: string, messageID: string | undefined, get: Resolver) {
   const nodes: Identity[] = []
   const visited = new Set<string>()
   for (let current: string | undefined = id; current; ) {
-    if (visited.has(current) || nodes.length > 12) throw new Error("Delegación cíclica o demasiado profunda")
+    if (visited.has(current) || nodes.length > 2) throw new Error("Delegación cíclica o demasiado profunda")
     visited.add(current)
     const node = await get(current, current === id ? messageID : undefined)
     if (node.id !== current) throw new Error("No se pudo verificar la sesión")
-    if (!roleOf(node.agent) && nodes.length) break
-    if (!roleOf(node.agent)) throw new Error("No se pudo verificar el agente")
+    if (!roleOf(node) && nodes.length) break
+    if (!roleOf(node)) throw new Error("No se pudo verificar el agente y su skill")
     if (nodes.length && nodes[0].directory !== node.directory) throw new Error("Proyecto de sesión distinto")
     nodes.push(node)
     current = node.parentID
   }
   nodes.reverse()
   for (let i = 1; i < nodes.length; i++) {
-    if (!childOf[roleOf(nodes[i].agent)!].includes(roleOf(nodes[i - 1].agent)!))
+    if (roleOf(nodes[i]) !== "codigo" || roleOf(nodes[i - 1]) !== "pregunta")
       throw new Error("Delegación no autorizada")
   }
   return nodes
@@ -93,14 +138,14 @@ function folderFor(state: State, nodes: Identity[], index: number) {
   const node = nodes[index]
   const existing = state.entries[node.id]
   if (existing) {
-    if (existing.parent !== node.parentID || existing.agent !== roleOf(node.agent)) throw new Error("Propietario de carpeta diferente")
+    if (existing.parent !== node.parentID || existing.agent !== roleOf(node)) throw new Error("Propietario de carpeta diferente")
     return existing.folder
   }
   const parent = index ? state.entries[nodes[index - 1].id].folder : ""
   const count = Object.values(state.entries).filter((entry) => entry.parent === node.parentID).length + 1
-  const label = `${String(count).padStart(2, "0")}-${labels[roleOf(node.agent)!]}${index ? `__${slug(node.title)}` : ""}`
+  const label = `${String(count).padStart(2, "0")}-${labels[roleOf(node)!]}${index ? `__${slug(node.title)}` : ""}`
   const folder = parent ? join(parent, label) : label
-  state.entries[node.id] = { parent: node.parentID, agent: roleOf(node.agent)!, folder }
+  state.entries[node.id] = { parent: node.parentID, agent: roleOf(node)!, folder }
   return folder
 }
 
@@ -130,26 +175,24 @@ async function replaceFile(source: string, destination: string) {
 
 export type Publication = { guardado: false } | { guardado: true; rutas: Record<string, string>; sesion: string }
 
-// Solo el adaptador verificado de OpenCode puede asignar la carpeta de un agente.
+// El adaptador verificado de OpenCode asigna las carpetas; el modelo aporta solo contenido.
 export async function publishSession(input: {
   sessionID: string; messageID?: string; agent: string; topic: string;
-  files: Record<string, string>; group?: "consulta"; sources?: string[]; decisions?: string[]
-}, options: { get?: Resolver; root?: string; settingsPath?: string } = {}): Promise<Publication> {
+  files: Record<string, string>; group?: "consulta"; sources?: string[]
+}, options: { get: Resolver; settingsPath: string }): Promise<Publication> {
   const names = Object.keys(input.files)
   if (!names.length || names.some((name) => !input.files[name]?.trim())) throw new Error("Entregables vacíos")
   names.forEach(safeName)
   if (input.group && input.group !== "consulta") throw new Error("Grupo no permitido")
-  const nodes = await chain(input.sessionID, input.messageID, options.get ?? resolver ?? (() => { throw new Error("Adaptador de sesión no disponible") }))
+  const nodes = await chain(input.sessionID, input.messageID, options.get)
   if (nodes.at(-1)!.agent !== input.agent) throw new Error("Autor de publicación diferente")
-  const settings = await readAgentSettings(options.settingsPath)
-  const role = roleOf(input.agent)!
-  if (!settings.agentes[role === "pregunta" ? "coordinador" : role].guardarEntregablesEnSesion) return { guardado: false }
-  if (input.agent === "lector-codigo" && !settings.agentes.coordinador.especialistasPermitidos.includes("codigo") && nodes.length > 1)
-    throw new Error("Especialista deshabilitado")
-  if (input.agent === "lector-docs" && !settings.agentes.coordinador.especialistasPermitidos.includes("documentacion") && nodes.some((n) => isPrimaryAgent(n.agent)))
+  const settings = await readSettings(options.settingsPath)
+  const role = roleOf(nodes.at(-1)!)!
+  if (!settings.skills[role === "pregunta" ? "pregunta" : "lee-codigo"].guardarEntregablesEnSesion) return { guardado: false }
+  if (role === "codigo" && !settings.skills.pregunta.especialistasPermitidos.includes("codigo") && nodes.length > 1)
     throw new Error("Especialista deshabilitado")
 
-  const root = options.root ?? sessionRoot(settings)
+  const root = resolve(nodes[0].directory, settings.sesiones.carpetaRaiz)
   await checkExistingAncestors(root)
   await mkdir(root, { recursive: true })
   await directory(root)
@@ -177,7 +220,7 @@ export async function publishSession(input: {
           rootFolder = `${rootName(nodes[0].created, nodes[0].title || input.topic)}-${String(n + 1).padStart(2, "0")}`
         }
       }
-      state = { root: rootFolder, entries: {}, deliveries: [], sources: [], decisions: [] }
+      state = { root: rootFolder, entries: {}, deliveries: [], sources: [] }
       await saveJson(stateFile, state)
     }
     if (basename(state.root) !== state.root || state.root === "." || state.root === "..") throw new Error("Raíz de sesión inválida")
@@ -221,23 +264,22 @@ export async function publishSession(input: {
         for (const name of names) {
           const version = String(state.deliveries.filter((d) => d.startsWith(`${relativeOwner}/`)).length + 1).padStart(2, "0")
           const path = join(owner, `${version}-${name}`)
-          await writeFile(path, input.files[name], { flag: "wx" })
+          const temp = join(stateDir, `entrega-${randomUUID()}.tmp`)
+          try {
+            await writeFile(temp, input.files[name], { flag: "wx" })
+            await link(temp, path)
+          } finally { await rm(temp, { force: true }) }
           paths[name] = path
           state.deliveries.push(`${relativeOwner}/${version}-${name}`)
         }
       }
       if (input.group) state.deliveries.push(`${relativeOwner}/${basename(target)}`)
-      const add = (field: "sources" | "decisions", items: string[] = []) => {
-        for (const item of items) {
-          const text = item.replace(/[\r\n]+/g, " ").trim().slice(0, 300)
-          if (text && !state[field].includes(text)) state[field].push(text)
-        }
+      for (const item of input.sources ?? []) {
+        const text = item.replace(/[\r\n]+/g, " ").trim().slice(0, 300)
+        if (text && !state.sources.includes(text)) state.sources.push(text)
       }
-      add("sources", input.sources)
-      add("decisions", input.decisions)
       const index = ["# Encargo", "", `**Tema:** ${(nodes[0].title || input.topic).replace(/[\r\n]+/g, " ")}`,
         "**Estado:** entregables publicados", "", "## Fuentes consultadas", ...state.sources.map((s) => `- ${s}`),
-        "", "## Decisiones relevantes", ...state.decisions.map((d) => `- ${d}`),
         "", "## Entregas", ...state.deliveries.map((d) => `- [${d}](./${d})`), ""].join("\n")
       await saveJson(stateFile, state)
       const indexPath = join(sessionDir, "indice.md")

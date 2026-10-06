@@ -1,23 +1,32 @@
-# Investigación asistida por agentes
+# Skills de investigación asistida
 
-Versión ligera del flujo de planificación: responde dudas del día a día sobre código y documentación local, sin refinar historias ni generar planes.
+Resuelve preguntas sobre código, documentación local e issues de Jira, Azure DevOps o GitHub, con evidencias y límites de cobertura.
 
 | Componente | Función |
 |---|---|
-| Skill `pregunta` | Recoge el alcance, consulta especialistas y contrasta sus evidencias desde el agente principal. |
-| Agente `lector-codigo` | Investiga el workspace indexado con Codegraph. |
-| Agente `lector-docs` | Examina documentos locales y cita las fuentes. |
+| Skill `pregunta` | Recoge el alcance, delega la lectura y contrasta evidencias desde el agente principal. |
+| Skill `lee-codigo` | Investiga el workspace indexado con Codegraph y cita el código. |
+| Skill `lee-docs` | Investiga documentos locales e issues de Jira, Azure DevOps o GitHub y cita las fuentes. |
+| `explore` del harness | Ejecuta cada skill lectora en una sesión distinta, sin delegaciones anidadas. |
+
+```text
+agente principal + pregunta
+  ├─ explore + lee-codigo ── Codegraph/Git ── informe de código
+  └─ explore + lee-docs   ── documentos/board ── informe documental
+          ↓
+  contraste, respuesta y publicación de informes
+```
 
 ## Instalación en OpenCode
 
-Necesitas [OpenCode](https://opencode.ai/docs/), [APM](https://microsoft.github.io/apm/getting-started/installation/), [Node.js 24 o posterior](https://nodejs.org/en/download) y [Git](https://git-scm.com/downloads) (APM lo utiliza para descargar paquetes). Abre una terminal en la **carpeta raíz del proyecto** donde usarás los agentes, no en `.opencode/`, y ejecuta:
+Necesitas [OpenCode](https://opencode.ai/docs/), [APM](https://microsoft.github.io/apm/getting-started/installation/), [Node.js 24 o posterior](https://nodejs.org/en/download) y [Git](https://git-scm.com/downloads). Desde la **raíz del proyecto anfitrión**, ejecuta:
 
 ```sh
 apm install pablotecat/ai-assisted-research --target opencode
 node apm_modules/pablotecat/ai-assisted-research/scripts/setup-opencode.mjs
 ```
 
-APM instala los agentes y la skill. El segundo comando configura los plugins, herramientas y dependencias npm para OpenCode; no necesitas descargar este repositorio. Después abre o reinicia OpenCode en esa misma carpeta e invoca la skill `pregunta` desde el agente principal.
+APM instala las tres skills. El segundo comando instala un plugin, su módulo de persistencia y la dependencia npm, configura los permisos de `explore` y crea `.opencode/research-settings.json`. Reinicia OpenCode en esa carpeta e invoca `pregunta` desde el agente principal.
 
 **Actualizar:** desde la misma carpeta, ejecuta:
 
@@ -26,14 +35,24 @@ apm update --yes --target opencode
 node apm_modules/pablotecat/ai-assisted-research/scripts/setup-opencode.mjs
 ```
 
-Si antes instalaste copiando archivos manualmente, elimina `lector-codigo.md`, `lector-docs.md`, `agente-coordinador.md`, `agente-codigo.md` y `agente-documentacion.md` de `.opencode/agent/` y `pregunta/` de `.opencode/skill/` tras instalar con APM, para evitar duplicados. Conserva `.opencode/agent-settings.json`: el instalador no sobrescribe tus ajustes.
+El instalador migra `agent-settings.json` al formato por skills, conserva fuentes, opciones de guardado y carpeta de sesiones, y retira los agentes, plugins y tools sustituidos. En sucesivas ejecuciones conserva `research-settings.json`. Si instalaste `pregunta/` manualmente en `.opencode/skill/`, elimina esa copia después de instalar con APM para evitar duplicados.
 
-Configura allí `proyecto.repositorio` (ruta absoluta del workspace) y/o `proyecto.carpetasDocumentales` (rutas absolutas) según las fuentes de tu consulta. Puedes dejar los valores vacíos para que `pregunta` solicite solo los imprescindibles y guarde los que confirmes. Las claves existentes `agentes.coordinador`, `agentes.codigo` y `agentes.documentacion` siguen configurando la skill y ambos lectores, respectivamente. `especialistasPermitidos` restringe las delegaciones; `guardarEntregablesEnSesion` permite desactivar el guardado para cada componente. La carpeta de sesiones se configura con `sesiones.carpetaRaiz`, relativa a la raíz del proyecto anfitrión (por defecto `informes-agente/sesiones/`). Ignora `agent-settings.json` y `informes-agente/` en el Git del anfitrión si no quieres versionar los datos locales.
+## Ajustes y fuentes
+
+En `.opencode/research-settings.json`, configura `proyecto.repositorio` y `carpetasDocumentales` con rutas absolutas, `referencia` si importa una versión concreta, y/o `board` con proveedor (`jira`, `azdo`, `github`) y URL HTTPS del proyecto/board o repositorio. Puedes dejar las fuentes vacías: `pregunta` pide las imprescindibles y guarda las que confirmes. Un board puede sustituir o complementar las carpetas documentales.
+
+`skills.pregunta` controla especialistas permitidos, límite de repreguntas y guardado de la consulta. `skills.lee-codigo` y `skills.lee-docs` controlan el guardado de sus informes. `sesiones.carpetaRaiz` es relativa al proyecto anfitrión; por defecto, `informes-investigacion/sesiones/`. Ignora los ajustes locales y esa carpeta en el Git del anfitrión si no quieres versionarlos.
+
+El plugin identifica la skill cargada: `lee-codigo` consulta Codegraph/Git y publica solo su informe; `lee-docs` lee archivos, consulta la web y convierte documentos con MarkItDown a salida estándar. Ambas mantienen intactas las fuentes. Para boards privados, habilita en los permisos de `explore` de `opencode.json` las herramientas MCP de consulta del proveedor; están denegadas por defecto. Los conectores y credenciales se configuran en el anfitrión. Para GitHub Issues públicos puede bastar la web.
 
 Para consultas de código, instala Codegraph e indexa el proyecto. Para convertir otros formatos de documentos, instala MarkItDown.
 
 ## Uso
 
-Desde el agente principal de OpenCode, invoca la skill `pregunta` con tu pregunta y las fuentes disponibles. La skill pide el contexto que falte, delega en `lector-codigo` y/o `lector-docs` y devuelve una respuesta con evidencias y límites. Publica `resumen-ejecutivo.md` e `informe-detallado.md` juntos en una carpeta de consulta; cada lector puede guardar su investigación. También puedes invocar a los lectores por separado. Los informes se organizan por sesión con `indice.md`; si el guardado está desactivado, las respuestas siguen apareciendo en conversación.
+Invoca `pregunta` con tu consulta y fuentes. Por defecto usa ambos lectores en paralelo; puedes solicitar solo código o documentación. Recibirás la respuesta y los informes completos en conversación.
 
-Para ejecutar las comprobaciones del paquete: `npm test` (Node.js 24 o posterior).
+Con el guardado activo, publica `resumen-ejecutivo.md` e `informe-detallado.md` juntos y añade `investigacion-documentacion.md` si está habilitado. `lee-codigo` publica su propio `investigacion.md`. Las entregas se numeran por sesión y quedan enlazadas en `indice.md`.
+
+Las tres skills de `.apm/skills/` también pueden utilizarse en otros harnesses con subagentes de lectura y herramientas para las fuentes correspondientes; la persistencia automática es la adaptación a OpenCode.
+
+Para verificar el paquete: `npm install` y `npm test` (Node.js 24 o posterior).

@@ -1,0 +1,14 @@
+{
+  "proyecto": {
+    "repositorio": "",
+    "referencia": "",
+    "carpetasDocumentales": [],
+    "board": { "proveedor": "", "url": "" }
+  },
+  "skills": {
+    "pregunta": { "maxRepreguntasEspecialistas": 2, "especialistasPermitidos": ["codigo", "documentacion"], "guardarEntregablesEnSesion": true },
+    "lee-codigo": { "guardarEntregablesEnSesion": true },
+    "lee-docs": { "guardarEntregablesEnSesion": true }
+  },
+  "sesiones": { "carpetaRaiz": "informes-investigacion/sesiones" }
+}

@@ -1,6 +1,6 @@
 name: ai-assisted-research
 version: 0.1.0
-description: Agentes de investigación de código y documentación para OpenCode.
+description: Skills de investigación y contraste de código, documentos e issues para OpenCode.
 targets:
   - opencode
 includes: auto

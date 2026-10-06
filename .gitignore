@@ -1,13 +1,13 @@
 node_modules/
 package-lock.json
 bun.lock
-agent-settings.json
-agent-settings.json.*.tmp
-agent-settings.json.lock/
+research-settings.json
+research-settings.json.*.tmp
+research-settings.json.lock/
 .env
 .env.*
 *.log
-/informes-agente/
+/informes-investigacion/
 /apm_modules/
 /build/
 /.opencode/
