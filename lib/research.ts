@@ -1,30 +1,30 @@
 import { createHash, randomUUID } from "node:crypto"
 import { link, lstat, mkdir, readFile, realpath, rename, rm, writeFile } from "node:fs/promises"
 import { basename, isAbsolute, join, relative, resolve, sep } from "node:path"
-import { tool } from "@opencode-ai/plugin"
+import { z } from "zod"
 
-const nonEmpty = tool.schema.string().trim().min(1)
-const board = tool.schema.object({
-  proveedor: tool.schema.enum(["", "jira", "azdo", "github"]),
-  url: tool.schema.string().refine((s) => !s || (() => { try { return new URL(s).protocol === "https:" } catch { return false } })(), "URL HTTPS requerida"),
+const nonEmpty = z.string().trim().min(1)
+const board = z.object({
+  proveedor: z.enum(["", "jira", "azdo", "github"]),
+  url: z.string().refine((s) => !s || (() => { try { return new URL(s).protocol === "https:" } catch { return false } })(), "URL HTTPS requerida"),
 }).strict().refine((b) => Boolean(b.proveedor) === Boolean(b.url), "Indica proveedor y URL juntos")
-export const projectSchema = tool.schema.object({
-  repositorio: tool.schema.string().refine((s) => !s || isAbsolute(s)),
-  referencia: tool.schema.string(),
-  carpetasDocumentales: tool.schema.array(nonEmpty.refine(isAbsolute)),
+export const projectSchema = z.object({
+  repositorio: z.string().refine((s) => !s || isAbsolute(s)),
+  referencia: z.string(),
+  carpetasDocumentales: z.array(nonEmpty.refine(isAbsolute)),
   board,
 }).strict()
-const permitted = tool.schema.array(tool.schema.enum(["codigo", "documentacion"]))
+const permitted = z.array(z.enum(["codigo", "documentacion"]))
   .min(1).max(2).refine((v) => new Set(v).size === v.length, "Especialistas repetidos")
-const saved = tool.schema.object({ guardarEntregablesEnSesion: tool.schema.boolean() }).strict()
-const settingsSchema = tool.schema.object({
+const saved = z.object({ guardarEntregablesEnSesion: z.boolean() }).strict()
+const settingsSchema = z.object({
   proyecto: projectSchema,
-  skills: tool.schema.object({
-    pregunta: saved.extend({ maxRepreguntasEspecialistas: tool.schema.number().int().min(0), especialistasPermitidos: permitted }),
+  skills: z.object({
+    pregunta: saved.extend({ maxRepreguntasEspecialistas: z.number().int().min(0), especialistasPermitidos: permitted }),
     "lee-codigo": saved,
     "lee-docs": saved,
   }).strict(),
-  sesiones: tool.schema.object({ carpetaRaiz: nonEmpty.refine((s) => !isAbsolute(s) && !s.includes(":") && s.split(/[\\/]/).every((part) => part && part !== ".." && part !== "."), "Ruta relativa dentro del proyecto") }).strict(),
+  sesiones: z.object({ carpetaRaiz: nonEmpty.refine((s) => !isAbsolute(s) && !s.includes(":") && s.split(/[\\/]/).every((part) => part && part !== ".." && part !== "."), "Ruta relativa dentro del proyecto") }).strict(),
 }).strict()
 export type ResearchSettings = ReturnType<typeof settingsSchema.parse>
 
