@@ -5,6 +5,8 @@ description: Investiga requisitos e intención documentada en archivos locales o
 
 # Lee docs
 
+En GitHub Copilot, lee primero [la integración Copilot](references/copilot.md) para usar el lector especializado y el conversor restringido. Conserva los criterios de evidencia y el formato de informe siguientes.
+
 Investiga la **intención funcional documentada**. Entrega el informe completo en conversación, también cuando te invoque `pregunta`. En OpenCode el agente principal gestiona su guardado mediante `write_report_pair`; esta skill consulta fuentes y no publica archivos.
 
 Recibe `PREGUNTA`, `LOCAL_DOCUMENT_ROOTS` y/o `BOARD` (`proveedor`: `jira`, `azdo` o `github`; `url` HTTPS del proyecto o repositorio). Puede recibir `CONTEXTO`, `ALCANCE_ADICIONAL` (épica, componente, entrega o documentos), identificadores y alcance del proyecto, y `FECHA_DE_CORTE` para consultas históricas. Usa solo raíces y proyectos confirmados; si no hay fuente, solicita una raíz local o proveedor y URL del board. Si la ambigüedad cambia el corpus, pide el dato preciso antes de atribuir cobertura; si admite interpretaciones separables, investígalas por separado.
