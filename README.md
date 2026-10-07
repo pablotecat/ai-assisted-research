@@ -23,7 +23,7 @@ Ejecuta los comandos desde la **raíz del proyecto que quieras investigar**.
 ### OpenCode
 
 ```sh
-node apm_modules/pablotecat/ai-assisted-research/scripts/setup-opencode.mjs
+apm install pablotecat/ai-assisted-research --target opencode
 ```
 ```sh
 node apm_modules/pablotecat/ai-assisted-research/scripts/setup-opencode.mjs
