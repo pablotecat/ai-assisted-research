@@ -11,7 +11,10 @@ La salida se guardan por defecto en informes-investigacion/sesiones/
 ## Requisitos
 
 [APM](https://microsoft.github.io/apm/getting-started/installation/), Node.js ≥ 24, Git y OpenCode o GitHub Copilot (VS Code o CLI).
-Para investigar código en local, instala [Codegraph](https://github.com/colbymchenry/codegraph#quick-start) e [indexa el proyecto](https://github.com/colbymchenry/codegraph#3-initialize-projects); para convertir documentos, instala [MarkItDown](https://github.com/microsoft/markitdown#installation). Los boards privados requieren un conector MCP configurado.
+
+Para investigar código en local, instala [Codegraph](https://github.com/colbymchenry/codegraph#quick-start) e [indexa el proyecto](https://github.com/colbymchenry/codegraph#3-initialize-projects).
+
+Para leer documentos, recomendado instalar [MarkItDown](https://github.com/microsoft/markitdown#installation). Los boards privados requieren un conector MCP configurado.
 
 ## Instalar y actualizar
 
