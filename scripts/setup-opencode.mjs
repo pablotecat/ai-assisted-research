@@ -38,7 +38,8 @@ if (!(await stat(settingsPath).then(() => true, (e) => { if (e.code === "ENOENT"
 
 const packagePath = join(configDir, "package.json")
 const packageConfig = await json(packagePath)
-const dependency = (await json(join(source, "package.json"))).dependencies
+const available = (await json(join(source, "package.json"))).dependencies
+const dependency = Object.fromEntries(["@opencode-ai/plugin", "zod"].map((name) => [name, available[name]]))
 packageConfig.type ??= "module"
 packageConfig.dependencies = { ...dependency, ...packageConfig.dependencies }
 await writeFile(packagePath, JSON.stringify(packageConfig, null, 2) + "\n")
