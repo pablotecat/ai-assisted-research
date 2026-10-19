@@ -5,6 +5,8 @@ import { tmpdir } from "node:os"
 import { dirname, join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import test from "node:test"
+import { Client } from "@modelcontextprotocol/sdk/client/index.js"
+import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import plugin from "./plugin/research.ts"
 import { publishSession, readSettings, saveMissingProject, type Identity } from "./lib/research.ts"
 
@@ -32,7 +34,7 @@ test("consulta directa y delegada: configuración, permisos y entregas de sesió
     get: async (id: string) => nodes[id] ?? Promise.reject(new Error("Sesión desconocida")) }
   try {
     const settings = await readSettings(path)
-    assert.deepEqual(Object.keys(settings.skills), ["pregunta", "lee-codigo", "lee-docs"])
+    assert.deepEqual(Object.keys(settings.skills), ["necesito-saber", "lee-codigo", "lee-docs"])
     assert.deepEqual(settings.proyecto.board, { proveedor: "", url: "" })
     await saveMissingProject({ repositorio: dir }, path)
     await saveMissingProject({ repositorio: tmpdir() }, path)
@@ -49,7 +51,7 @@ test("consulta directa y delegada: configuración, permisos y entregas de sesió
     if (!first.guardado) return
     assert.equal(await readFile(first.rutas["informe-detallado.md"], "utf8"), "Informe")
     assert.equal(await readFile(first.rutas["investigacion-documentacion.md"], "utf8"), "Evidencia documental")
-    assert.match(first.rutas["informe-detallado.md"], /01-pregunta/)
+    assert.match(first.rutas["informe-detallado.md"], /01-necesito-saber/)
     const next = await publishSession({ sessionID: "coord", agent: "build", topic: "pagos", group: "consulta",
       files: { "resumen-ejecutivo.md": "Resumen 2", "informe-detallado.md": "Informe 2" } }, opts)
     assert.equal(next.guardado, true)
@@ -86,11 +88,11 @@ test("consulta directa y delegada: configuración, permisos y entregas de sesió
 
     const current = await readSettings(path)
     const disabled = { ...current, skills: { ...current.skills,
-      pregunta: { ...current.skills.pregunta, especialistasPermitidos: ["documentacion"] } } }
+      "necesito-saber": { ...current.skills["necesito-saber"], especialistasPermitidos: ["documentacion"] } } }
     await writeFile(path, JSON.stringify(disabled))
     await assert.rejects(publishSession({ sessionID: "code", agent: "explore", topic: "pagos",
       files: { "investigacion.md": "no" } }, opts), /Especialista deshabilitado/)
-    disabled.skills.pregunta.especialistasPermitidos = ["codigo"]
+    disabled.skills["necesito-saber"].especialistasPermitidos = ["codigo"]
     disabled.skills["lee-codigo"].guardarEntregablesEnSesion = false
     await writeFile(path, JSON.stringify(disabled))
     assert.deepEqual(await publishSession({ sessionID: "code", agent: "explore", topic: "pagos",
@@ -149,10 +151,10 @@ test("explore distingue la skill cargada y conserva los permisos de cada lector"
   await writeFile(path, JSON.stringify(settings))
   const next = JSON.parse(await tools.write_report_pair.execute(pair, context) as string)
   assert.equal(next.rutas["investigacion-documentacion.md"], undefined)
-  settings.skills.pregunta.guardarEntregablesEnSesion = false
+  settings.skills["necesito-saber"].guardarEntregablesEnSesion = false
   await writeFile(path, JSON.stringify(settings))
   assert.deepEqual(JSON.parse(await tools.write_report_pair.execute(pair, context) as string), { guardado: false })
-  settings.skills.pregunta.especialistasPermitidos = ["codigo"]
+  settings.skills["necesito-saber"].especialistasPermitidos = ["codigo"]
   await writeFile(path, JSON.stringify(settings))
   await assert.rejects(before({ tool: "skill", sessionID: "plain", callID: "disabled" }, { args: { name: "lee-docs" } }), /deshabilitado/)
   const env = { env: {} as Record<string, string> }
@@ -183,9 +185,9 @@ test("instalación real, migración y actualización conservan ajustes y archivo
     const settings = await readSettings(path)
     settings.proyecto.repositorio = dir
     settings.sesiones.carpetaRaiz = "informes-personales/sesiones"
-    settings.skills.pregunta.maxRepreguntasEspecialistas = 7
+    settings.skills["necesito-saber"].maxRepreguntasEspecialistas = 7
     const { board, ...oldProject } = settings.proyecto
-    const old = { proyecto: oldProject, agentes: { coordinador: settings.skills.pregunta,
+    const old = { proyecto: oldProject, agentes: { coordinador: settings.skills["necesito-saber"],
       codigo: settings.skills["lee-codigo"], documentacion: settings.skills["lee-docs"] }, sesiones: settings.sesiones }
     await rm(path)
     await writeFile(join(configDir, "agent-settings.json"), JSON.stringify(old))
@@ -213,11 +215,49 @@ test("instalación real, migración y actualización conservan ajustes y archivo
     await writeFile(path, JSON.stringify(settings))
     install(dir)
     assert.deepEqual(await readSettings(path), settings)
+    const { "necesito-saber": coordinator, ...readers } = settings.skills
+    await writeFile(path, JSON.stringify({ ...settings, skills: { pregunta: coordinator, ...readers } }))
+    install(dir)
+    assert.deepEqual(await readSettings(path), settings)
   } finally { await rm(dir, { recursive: true, force: true }) }
 })
 
+test("Copilot migra el nombre conservando ajustes y publicación de informes", { timeout: 120000 }, async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), "research-copilot-"))
+  t.after(() => rm(dir, { recursive: true, force: true }))
+  const settings = JSON.parse(await readFile(join(source, "research-settings.example.json"), "utf8"))
+  settings.proyecto.repositorio = dir
+  settings.sesiones.carpetaRaiz = "informes-personales/sesiones"
+  settings.skills["necesito-saber"].maxRepreguntasEspecialistas = 7
+  const { "necesito-saber": coordinator, ...readers } = settings.skills
+  const path = join(dir, ".github", "research-settings.json")
+  await mkdir(dirname(path), { recursive: true })
+  await writeFile(path, JSON.stringify({ ...settings, skills: { pregunta: coordinator, ...readers } }))
+  const installed = spawnSync(process.execPath, [join(source, "scripts", "setup-copilot.mjs")], {
+    cwd: dir, encoding: "utf8", timeout: 60000,
+    env: { ...process.env, npm_config_offline: "true", npm_config_audit: "false", npm_config_fund: "false" },
+  })
+  assert.equal(installed.status, 0, installed.stdout + installed.stderr + (installed.error ?? ""))
+  assert.deepEqual(await readSettings(path), settings)
+  const client = new Client({ name: "research-test", version: "1.0.0" })
+  t.after(() => client.close())
+  await client.connect(new StdioClientTransport({ command: process.execPath,
+    args: [join(dir, ".github", "research", "copilot", "server.ts"), "--workspace", dir, "--role", "control"] }))
+  const invoke = async (name: string, args: Record<string, unknown>) => {
+    const response = await client.callTool({ name, arguments: args })
+    assert.notEqual(response.isError, true, JSON.stringify(response))
+    return JSON.parse((response.content as { text: string }[])[0].text)
+  }
+  const { investigacion } = await invoke("start_research", { tema: "Consulta" })
+  const report = await invoke("write_report_pair", { investigacion, resumen_ejecutivo: "Resumen",
+    informe_detallado: "Informe", investigacion_documentacion: "Documentación" })
+  assert.equal(report.guardado, true)
+  assert.match(report.rutas["informe-detallado.md"], /01-necesito-saber/)
+  assert.equal(await readFile(report.rutas["investigacion-documentacion.md"], "utf8"), "Documentación")
+})
+
 test("las skills solo enlazan recursos existentes y explican las tools instaladas", async () => {
-  for (const name of ["pregunta", "lee-codigo", "lee-docs"]) {
+  for (const name of ["necesito-saber", "lee-codigo", "lee-docs"]) {
     const dir = join(source, ".apm", "skills", name)
     const markdown = await readFile(join(dir, "SKILL.md"), "utf8")
     assert.match(markdown, new RegExp(`^---\\r?\\nname: ${name}\\r?\\ndescription: .+`, "m"))

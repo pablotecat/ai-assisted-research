@@ -69,8 +69,17 @@ async function mergeJSON(path, key, value) {
 }
 
 const settingsPath = join(host, ".github", "research-settings.json")
-if (await existing(settingsPath) === undefined)
+const previousSettings = await existing(settingsPath)
+if (previousSettings === undefined)
   await save(settingsPath, await readFile(join(source, "research-settings.example.json"), "utf8"))
+else {
+  const settings = JSON.parse(previousSettings)
+  if (settings.skills?.pregunta && !settings.skills["necesito-saber"]) {
+    settings.skills["necesito-saber"] = settings.skills.pregunta
+    delete settings.skills.pregunta
+    await save(settingsPath, JSON.stringify(settings, null, 2) + "\n")
+  }
+}
 await (await import(pathToFileURL(join(runtime, "lib", "research.ts")).href)).readSettings(settingsPath)
 
 const vscodeConfig = join(host, ".vscode", "mcp.json")
@@ -81,4 +90,4 @@ for (const [name, role] of [["research-control", "control"], ["research-code", "
   await mergeJSON(cliConfig, ["mcpServers", name], { type: "local", ...common, tools: ["*"] })
 }
 
-console.log(`\nRuntime de las skills preparado en ${host}.\nAjustes: ${settingsPath}\nAPM instala las skills; este script no crea agentes ni copia skills.\nRecarga Copilot e invoca pregunta desde tu agente principal.\nCLI: copilot --additional-mcp-config '@.github/research/mcp-config.json'`)
+console.log(`\nRuntime de las skills preparado en ${host}.\nAjustes: ${settingsPath}\nAPM instala las skills; este script no crea agentes ni copia skills.\nRecarga Copilot e invoca necesito-saber desde tu agente principal.\nCLI: copilot --additional-mcp-config '@.github/research/mcp-config.json'`)

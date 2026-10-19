@@ -97,7 +97,7 @@ if (role === "control") {
   }, async ({ investigacion, resumen_ejecutivo, informe_detallado, investigacion_documentacion, fuentes }) => {
     const settings = await readSettings(settingsPath)
     const files: Record<string, string> = { "resumen-ejecutivo.md": resumen_ejecutivo, "informe-detallado.md": informe_detallado }
-    if (investigacion_documentacion && settings.skills["lee-docs"].guardarEntregablesEnSesion && settings.skills.pregunta.especialistasPermitidos.includes("documentacion"))
+    if (investigacion_documentacion && settings.skills["lee-docs"].guardarEntregablesEnSesion && settings.skills["necesito-saber"].especialistasPermitidos.includes("documentacion"))
       files["investigacion-documentacion.md"] = investigacion_documentacion
     return publishSession({ sessionID: investigacion, agent: "copilot", topic: "Consulta", group: "consulta", files, sources: fuentes }, await publication(investigacion))
   })

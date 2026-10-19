@@ -1,13 +1,13 @@
 ---
 name: lee-codigo
-description: Investiga el comportamiento implementado en un WORKSPACE mediante Codegraph y citas de código. Úsala para resolver consultas funcionales o técnicas sobre el repositorio, también al ser delegada por pregunta.
+description: Investiga el comportamiento implementado en un WORKSPACE mediante Codegraph y citas de código. Úsala para resolver consultas funcionales o técnicas sobre el repositorio, también al ser delegada por necesito-saber.
 ---
 
 # Lee código
 
 En GitHub Copilot, lee primero [la integración Copilot](references/copilot.md) para usar el lector especializado y las consultas restringidas. Conserva los criterios de evidencia y el formato de informe siguientes.
 
-Investiga el **comportamiento implementado** de un workspace. Descubre símbolos y relaciones con Codegraph; valida los resultados y las citas mediante lectura directa, búsqueda textual y Git de consulta. Entrega la investigación completa, también cuando te invoque `pregunta`. En OpenCode se ejecuta en una sesión `explore` independiente de `lee-docs`.
+Investiga el **comportamiento implementado** de un workspace. Descubre símbolos y relaciones con Codegraph; valida los resultados y las citas mediante lectura directa, búsqueda textual y Git de consulta. Entrega la investigación completa, también cuando te invoque `necesito-saber`. En OpenCode se ejecuta en una sesión `explore` independiente de `lee-docs`.
 
 ## Entrada y alcance
 

@@ -2,7 +2,7 @@
 
 Responde preguntas sobre código, documentación e issues de Jira, Azure DevOps o GitHub, citando las fuentes.
 
-- **`/pregunta`**: coordina la investigación y contrasta código y documentación.
+- **`/necesito-saber`**: coordina la investigación y contrasta código y documentación.
 - **`/lee-codigo`**: investiga el código con Codegraph.
 - **`/lee-docs`**: consulta documentos locales o en un board.
 
@@ -29,7 +29,7 @@ apm install pablotecat/ai-assisted-research --target opencode
 node apm_modules/pablotecat/ai-assisted-research/scripts/setup-opencode.mjs
 ```
 
-**Actualizar:** ejecuta `apm update --yes --target opencode` y repite el comando `node` anterior. Reinicia OpenCode e invoca la skill `pregunta`.
+**Actualizar:** ejecuta `apm update --yes --target opencode` y repite el comando `node` anterior. Reinicia OpenCode e invoca la skill `necesito-saber`.
 
 ### VS Code / GitHub Copilot
 
@@ -44,9 +44,9 @@ node apm_modules/pablotecat/ai-assisted-research/scripts/setup-copilot.mjs
 ## Ejemplo de uso
 
 ```text
-/pregunta ¿Qué usuarios reciben notificaciones al crear un documento?
+/necesito-saber ¿Qué usuarios reciben notificaciones al crear un documento?
 /lee-docs confirma que esta historia no tiene dependenacias documentales.
 /lee-codigo ¿quién está habilitado para editar fichas de acceso?
 ```
 
-Si faltan fuentes, el agente que usa `/pregunta` te las pedirá. Puedes solicitar solo código o solo documentación.
+Si faltan fuentes, el agente que usa `/necesito-saber` te las pedirá. Puedes solicitar solo código o solo documentación.

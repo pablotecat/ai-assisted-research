@@ -1,8 +1,8 @@
 # Lectura documental en GitHub Copilot
 
-Cuando `pregunta` te delegue esta skill, actúa como su lector documental en el subagente de lectura disponible en el anfitrión. Carga solo esta skill, consulta sin escritura ni delegación y devuelve el informe completo al agente principal, que gestiona ajustes y guardado. El paquete no requiere un agente llamado `lector-docs` ni instala perfiles propios.
+Cuando `necesito-saber` te delegue esta skill, actúa como su lector documental en el subagente de lectura disponible en el anfitrión. Carga solo esta skill, consulta sin escritura ni delegación y devuelve el informe completo al agente principal, que gestiona ajustes y guardado. El paquete no requiere un agente llamado `lector-docs` ni instala perfiles propios.
 
-Para una invocación directa del usuario, el agente principal coordina la consulta mediante `pregunta`, solicitando únicamente documentación; conserva el formato completo de esta skill. En una delegación, devuelve el informe sin invocar herramientas de control o publicación.
+Para una invocación directa del usuario, el agente principal coordina la consulta mediante `necesito-saber`, solicitando únicamente documentación; conserva el formato completo de esta skill. En una delegación, devuelve el informe sin invocar herramientas de control o publicación.
 
 Aplica la skill y consulta únicamente las raíces y board confirmados. Lee Markdown y texto con las herramientas nativas. Para comprobar MarkItDown llama a `research-docs/convert_document` sin argumentos; para convertir un archivo pasa `ruta` absoluta. Analiza stdout y cita siempre el documento original. Si no está disponible o se pierde cobertura, registra la limitación sin instalar dependencias ni usar servicios externos de conversión.
 

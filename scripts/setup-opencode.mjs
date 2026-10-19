@@ -30,10 +30,17 @@ if (!(await stat(settingsPath).then(() => true, (e) => { if (e.code === "ENOENT"
   const old = await json(join(configDir, "agent-settings.json"))
   const settings = old.agentes ? {
     proyecto: { ...defaults.proyecto, ...old.proyecto },
-    skills: { pregunta: old.agentes.coordinador, "lee-codigo": old.agentes.codigo, "lee-docs": old.agentes.documentacion },
+    skills: { "necesito-saber": old.agentes.coordinador, "lee-codigo": old.agentes.codigo, "lee-docs": old.agentes.documentacion },
     sesiones: old.sesiones,
   } : defaults
   await writeFile(settingsPath, JSON.stringify(settings, null, 2) + "\n", { flag: "wx" })
+} else {
+  const settings = await json(settingsPath)
+  if (settings.skills?.pregunta && !settings.skills["necesito-saber"]) {
+    settings.skills["necesito-saber"] = settings.skills.pregunta
+    delete settings.skills.pregunta
+    await writeFile(settingsPath, JSON.stringify(settings, null, 2) + "\n")
+  }
 }
 
 const packagePath = join(configDir, "package.json")

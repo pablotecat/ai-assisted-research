@@ -1,6 +1,6 @@
 # Lectura de código en GitHub Copilot
 
-Cuando `pregunta` te delegue esta skill, actúa como su lector de código en el subagente de lectura disponible en el anfitrión. Carga solo esta skill, consulta sin escritura ni delegación y devuelve el informe completo al agente principal, que gestiona ajustes y guardado. El paquete no requiere un agente llamado `lector-codigo` ni instala perfiles propios.
+Cuando `necesito-saber` te delegue esta skill, actúa como su lector de código en el subagente de lectura disponible en el anfitrión. Carga solo esta skill, consulta sin escritura ni delegación y devuelve el informe completo al agente principal, que gestiona ajustes y guardado. El paquete no requiere un agente llamado `lector-codigo` ni instala perfiles propios.
 
 En una invocación directa del usuario, el agente principal lee `research-control/research_settings`, confirma las fuentes que falten y abre una investigación con `research-control/start_research`. Ejecuta la investigación en modo lectura y conserva el informe mediante `research-control/publish_code_report`, pasando el identificador devuelto, el contenido completo y las fuentes. Respeta el resultado `guardado:false` y comunica solo rutas confirmadas. En una delegación, devuelve el informe sin llamar a estas herramientas de control.
 

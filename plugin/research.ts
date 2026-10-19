@@ -64,7 +64,7 @@ export default (async ({ client, directory }) => {
         },
       }),
       write_report_pair: tool({
-        description: "Publica juntos resumen, informe detallado y, si procede, informe documental de pregunta; devuelve guardado:false si está desactivado.",
+        description: "Publica juntos resumen, informe detallado y, si procede, informe documental de necesito-saber; devuelve guardado:false si está desactivado.",
         args: {
           slug: tool.schema.string().describe("Tema breve de la consulta"),
           resumen_ejecutivo: tool.schema.string().min(1),
@@ -76,7 +76,7 @@ export default (async ({ client, directory }) => {
           if (!isPrimaryAgent(context.agent)) throw new Error("Solo el agente principal puede publicar informes")
           const settings = await readSettings(settingsPath)
           const files: Record<string, string> = { "resumen-ejecutivo.md": args.resumen_ejecutivo, "informe-detallado.md": args.informe_detallado }
-          if (args.investigacion_documentacion && settings.skills["lee-docs"].guardarEntregablesEnSesion && settings.skills.pregunta.especialistasPermitidos.includes("documentacion"))
+          if (args.investigacion_documentacion && settings.skills["lee-docs"].guardarEntregablesEnSesion && settings.skills["necesito-saber"].especialistasPermitidos.includes("documentacion"))
             files["investigacion-documentacion.md"] = args.investigacion_documentacion
           return JSON.stringify(await publishSession({ sessionID: context.sessionID, messageID: context.messageID,
             agent: context.agent, topic: args.slug, group: "consulta", sources: args.fuentes, files }, publication))
@@ -91,7 +91,7 @@ export default (async ({ client, directory }) => {
         const name = output.args?.name
         if (name !== "lee-codigo" && name !== "lee-docs") throw new Error("Skill no permitida para este lector")
         if (node.skill && node.skill !== name) throw new Error("Cada sesión explore carga una única skill lectora")
-        if (node.parentID && !(await readSettings(settingsPath)).skills.pregunta.especialistasPermitidos.includes(name === "lee-codigo" ? "codigo" : "documentacion"))
+        if (node.parentID && !(await readSettings(settingsPath)).skills["necesito-saber"].especialistasPermitidos.includes(name === "lee-codigo" ? "codigo" : "documentacion"))
           throw new Error("Especialista deshabilitado en research-settings.json")
       }
       if (["edit", "write", "apply_patch"].includes(input.tool)) throw new Error("Escritura local restringida a los publicadores de sesión")

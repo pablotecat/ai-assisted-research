@@ -20,7 +20,7 @@ const saved = z.object({ guardarEntregablesEnSesion: z.boolean() }).strict()
 const settingsSchema = z.object({
   proyecto: projectSchema,
   skills: z.object({
-    pregunta: saved.extend({ maxRepreguntasEspecialistas: z.number().int().min(0), especialistasPermitidos: permitted }),
+    "necesito-saber": saved.extend({ maxRepreguntasEspecialistas: z.number().int().min(0), especialistasPermitidos: permitted }),
     "lee-codigo": saved,
     "lee-docs": saved,
   }).strict(),
@@ -61,7 +61,7 @@ function roleOf(node: Identity): Role | undefined {
   if (node.primary) return "pregunta"
   return node.agent === "explore" && node.skill === "lee-codigo" ? "codigo" : undefined
 }
-const labels: Record<Role, string> = { pregunta: "pregunta", codigo: "lee-codigo" }
+const labels: Record<Role, string> = { pregunta: "necesito-saber", codigo: "lee-codigo" }
 type Entry = { parent?: string; agent: Role; folder: string }
 type State = { root: string; entries: Record<string, Entry>; deliveries: string[]; sources: string[] }
 
@@ -188,8 +188,8 @@ export async function publishSession(input: {
   if (nodes.at(-1)!.agent !== input.agent) throw new Error("Autor de publicación diferente")
   const settings = await readSettings(options.settingsPath)
   const role = roleOf(nodes.at(-1)!)!
-  if (!settings.skills[role === "pregunta" ? "pregunta" : "lee-codigo"].guardarEntregablesEnSesion) return { guardado: false }
-  if (role === "codigo" && !settings.skills.pregunta.especialistasPermitidos.includes("codigo") && nodes.length > 1)
+  if (!settings.skills[role === "pregunta" ? "necesito-saber" : "lee-codigo"].guardarEntregablesEnSesion) return { guardado: false }
+  if (role === "codigo" && !settings.skills["necesito-saber"].especialistasPermitidos.includes("codigo") && nodes.length > 1)
     throw new Error("Especialista deshabilitado")
 
   const root = resolve(nodes[0].directory, settings.sesiones.carpetaRaiz)
