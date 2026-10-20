@@ -1,6 +1,8 @@
 # Interfaz de Codegraph y validación Git
 
-La CLI se llama `codegraph`. Usa exclusivamente estos comandos de consulta, con el workspace recibido como ruta absoluta entre comillas:
+Usa las herramientas de lectura disponibles para consultar Codegraph y Git. Si hay un conector, sigue su esquema para indicar workspace, comando y argumentos; comprueba si incorpora la ruta del workspace antes de repetirla como argumento. Los ejemplos siguientes describen la CLI, no el contrato de un conector. Si una consulta falla o se rechaza, registra el error y respeta los permisos del entorno.
+
+Cuando el entorno permita la CLI, se llama `codegraph`. Usa exclusivamente estos comandos de consulta, con el workspace recibido como ruta absoluta entre comillas:
 
 ```text
 codegraph status "<WORKSPACE>" --json
@@ -20,4 +22,4 @@ Un índice completo y sin cambios pendientes no acredita por sí solo un commit 
 
 Consulta commits anteriores con Git en modo lectura cuando ayuden a la investigación; separa esa evidencia histórica de la implementación del workspace actual. Para citar líneas definitivas del workspace, lee directamente sus archivos.
 
-Si la CLI no está disponible o no puedes asociar el índice al workspace recibido, declara la investigación `INSUFICIENTE` y solicita el dato exacto que falta. No inventes comandos ni sustituyas silenciosamente Codegraph por otra herramienta.
+Si no hay una interfaz de consulta disponible o no puedes asociar el índice al workspace recibido, declara la investigación `INSUFICIENTE` y solicita el dato exacto que falta. No instales herramientas, inventes comandos ni sustituyas silenciosamente Codegraph por otra herramienta.

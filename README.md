@@ -1,52 +1,102 @@
 # Skills de investigación asistida
 
-Responde preguntas sobre código, documentación e issues de Jira, Azure DevOps o GitHub, citando las fuentes.
+Prepara las fuentes de un proyecto y responde preguntas con evidencias de código, documentos locales y un board remoto accesible.
 
-- **`/necesito-saber`**: coordina la investigación y contrasta código y documentación.
-- **`/lee-codigo`**: investiga el código con Codegraph.
-- **`/lee-docs`**: consulta documentos locales o en un board.
+- **`/setup`**: entrevista adaptativa para descubrir capacidades, reutilizar ajustes, preparar lo elegido y comprobar el resultado.
+- **`/necesito-saber`**: investiga una o ambas fuentes y contrasta sus informes.
+- **`lee-codigo`**: lector del comportamiento implementado mediante Codegraph y citas de código.
+- **`lee-docs`**: lector de intención documentada, con citas y contradicciones explícitas.
 
-La salida se guardan por defecto en informes-investigacion/sesiones/
+## Arranque mínimo
 
-## Requisitos
-
-[APM](https://microsoft.github.io/apm/getting-started/installation/), Node.js ≥ 24, Git y OpenCode o GitHub Copilot (VS Code o CLI).
-
-Para investigar código en local, instala [Codegraph](https://github.com/colbymchenry/codegraph#quick-start) e [indexa el proyecto](https://github.com/colbymchenry/codegraph#3-initialize-projects).
-
-Para leer documentos, recomendado instalar [MarkItDown](https://github.com/microsoft/markitdown#installation). Los boards privados requieren un conector MCP configurado.
-
-## Instalar y actualizar
-
-Ejecuta los comandos desde la **raíz del proyecto que quieras investigar**.
-
-### OpenCode
+Instala [APM](https://microsoft.github.io/apm/getting-started/installation/) y ejecuta desde la **carpeta anfitriona del proyecto**:
 
 ```sh
 apm install pablotecat/ai-assisted-research --target opencode
 ```
+
+Para GitHub Copilot, utiliza `--target copilot`. Los destinos conservados distribuyen las cuatro skills, sus referencias y una entrada explícita `/setup` (comando en OpenCode y prompt en Copilot). En un anfitrión compatible con Agent Skills también puedes cargar sus instrucciones instaladas mediante sus herramientas nativas.
+
+Recarga el asistente tras instalar y ejecuta:
+
+```text
+/setup
+```
+
+La entrevista muestra los valores existentes y pregunta por decisiones, sin exigir código local para investigar documentación. Puede terminar parcialmente preparada: por ejemplo, documentación `LISTA`, código `PENDIENTE` de índice y board `PENDIENTE` de autenticación. Repite `/setup` para conservar lo elegido y volver a comprobar pendientes. Las investigaciones pueden sugerirla; la entrevista solo empieza por petición explícita.
+
+## Con o sin runtime
+
+**Vía básica:** las skills utilizan herramientas nativas de lectura, búsqueda, consulta y escritura disponibles. No necesitan Node ni un servidor del paquete para leer documentación o guardar informes nativamente. Sin subagentes, `auto` ejecuta primero documentación y después código en el principal, declarando contexto compartido. Con una fuente, no exige subagentes.
+
+**Runtime opcional:** requiere Node.js ≥ 24 y npm. Aporta edición validada de ajustes y publicación con numeración, historial, comprobaciones de ruta, bloqueo y entregas de consulta atómicas. El plugin nativo añade verificación de sesiones y restricciones de herramientas para los lectores; el MCP utiliza identificadores de investigación propios y respeta los permisos del anfitrión. El runtime no aporta por sí solo conectores de boards, lectura general de archivos ni orquestación de subagentes.
+
+Si eliges instalarlo desde la carpeta anfitriona, distinta del repositorio de desarrollo del paquete:
+
+### OpenCode
+
 ```sh
 node apm_modules/pablotecat/ai-assisted-research/scripts/setup-opencode.mjs
 ```
 
-**Actualizar:** ejecuta `apm update --yes --target opencode` y repite el comando `node` anterior. Reinicia OpenCode e invoca la skill `necesito-saber`.
+El instalador conserva los permisos compartidos de `explore`. Si eliges aplicar el perfil restrictivo del paquete, establece `RESEARCH_READER_PERMISSIONS=1` únicamente para esa ejecución; revisa antes `opencode.json` del paquete para conocer el perfil completo que sustituirá los permisos de ese lector. Los plugins heredados se conservan y se señalan para revisión expresa antes de cargar el runtime.
 
-### VS Code / GitHub Copilot
+### GitHub Copilot
 
-```sh
-apm install pablotecat/ai-assisted-research --target copilot
-```
 ```sh
 node apm_modules/pablotecat/ai-assisted-research/scripts/setup-copilot.mjs
 ```
-**Actualizar:** ejecuta `apm update --yes --target copilot` y repite el comando `node` anterior.
 
-## Ejemplo de uso
+Configura los servidores MCP en `.vscode/mcp.json` y `.github/research/mcp-config.json`, conservando comentarios, servidores ajenos y opciones existentes. En CLI:
 
-```text
-/necesito-saber ¿Qué usuarios reciben notificaciones al crear un documento?
-/lee-docs confirma que esta historia no tiene dependenacias documentales.
-/lee-codigo ¿quién está habilitado para editar fichas de acceso?
+```sh
+copilot --additional-mcp-config '@.github/research/mcp-config.json'
 ```
 
-Si faltan fuentes, el agente que usa `/necesito-saber` te las pedirá. Puedes solicitar solo código o solo documentación.
+Ambos instaladores comprueban entradas y conflictos antes de aplicar archivos, instalan dependencias con scripts de ciclo de vida deshabilitados y no retiran archivos heredados. Ante un fallo posterior indican lo aplicado y el paso pendiente. Reejecutarlos conserva las elecciones. **Cierra y reinicia OpenCode, o recarga Copilot**, para comprobar que se hayan cargado las herramientas; escribir la configuración no acredita su disponibilidad.
+
+### Requisitos de las fuentes
+
+- Código: un repositorio con workspace local accesible, Git e [índice Codegraph](https://github.com/colbymchenry/codegraph#quick-start) correspondiente al workspace y a la referencia solicitada.
+- Documentos locales: una o varias raíces accesibles; texto/Markdown se leen nativamente. [MarkItDown](https://github.com/microsoft/markitdown#installation) u otro lector local adecuado cuando lo exijan sus formatos.
+- Board: un proyecto/board/repositorio confirmado, con conector de lectura real o páginas públicas accesibles. La autenticación pertenece al anfitrión; las credenciales nunca se guardan en los ajustes de investigación.
+
+`/setup` ofrece preparar dependencias, clonar/indexar o registrar un conector documentado únicamente como acciones elegidas, y comprueba cada capacidad por separado. Sin terminal proporciona pasos manuales y aprovecha lo que sí pueda consultar.
+
+## Ajustes y guardado
+
+La carpeta anfitriona contiene ajustes e informes; puede ser distinta del workspace del código. La resolución compartida elige: archivo explícito del usuario, configuración de la integración activa, `research-settings.json` común y, por último, otros candidatos pertinentes del proyecto. Ante varios candidatos pide selección, sin crear copias ni sincronizarlas. Los valores por defecto se encuentran en [`research-settings.example.json`](research-settings.example.json).
+
+El runtime mantiene las ubicaciones nativas `.opencode/research-settings.json` y `.github/research-settings.json`, reutilizando el común si no existe el nativo. Para elegir otra ruta se admite `RESEARCH_SETTINGS_PATH`: en OpenCode debe estar presente también al arrancar el asistente; el instalador Copilot la vincula en los servidores generados. La herramienta `research_settings` anuncia el archivo en `archivo` y admite `read`, `saveMissing` (fuentes vacías) y `configure` (parche de opciones seleccionadas). Si un adaptador consume otro archivo, utiliza la vía básica completa o su vinculación soportada.
+
+`skills.necesito-saber.modoLectura` admite `auto`, `paralelo` y `secuencial`; su ausencia equivale a `auto` sin migrar el archivo. Una preferencia paralela sin lectores aislados requiere elegir otra vía, no simula investigadores independientes. Se admiten identificadores de board abiertos y URL HTTPS sin proveedor si el conector ya identifica el sistema.
+
+El principal conserva de forma independiente:
+
+| Ajuste de guardado | Entregables |
+|---|---|
+| `lee-codigo` | `investigacion.md` completo y revisiones. |
+| `lee-docs` | `investigacion-documentacion.md`, incluso con el guardado de la consulta desactivado. |
+| `necesito-saber` | `resumen-ejecutivo.md` e `informe-detallado.md`, enlazando las entregas de lectores existentes. |
+
+La salida predeterminada es `informes-investigacion/sesiones/`. Los publicadores `publish_code_report`, `publish_documentation_report` y `write_report_pair` devuelven solo rutas confirmadas. Este último mantiene el argumento documental opcional por compatibilidad; omítelo si ya se publicó aparte. Sin publicador compatible, el principal puede crear y releer entregas nuevas mediante escritura nativa; esa vía no ofrece el bloqueo, la identidad ni la atomicidad de la biblioteca. Si falla o no hay escritura, devuelve igualmente los informes completos en conversación.
+
+## Uso y actualización
+
+```text
+/setup conserva las fuentes y revisa únicamente el modo de lectura y los guardados
+/necesito-saber ¿Qué usuarios reciben notificaciones al crear un documento?
+/necesito-saber consulta solo documentación sobre las dependencias de esta historia
+```
+
+Para actualizar: `apm update --yes --target opencode` (o `copilot`). Si utilizas runtime, repite su instalador y reinicia/recarga el anfitrión.
+
+## Verificación
+
+```sh
+npm test
+node scripts/check-distribution.mjs
+git diff --check
+```
+
+La segunda comprobación requiere APM y verifica una instalación local real en ambos destinos, incluidos `/setup`, referencias relativas y plantilla. Los [recorridos de aceptación](docs/plans/setup-ligera-verificacion.md) distinguen comprobaciones ejecutadas y límites de las pruebas de entrevista.

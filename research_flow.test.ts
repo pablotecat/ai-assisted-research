@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { cp, lstat, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises"
+import { cp, lstat, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises"
 import { spawnSync } from "node:child_process"
 import { tmpdir } from "node:os"
 import { dirname, join, resolve } from "node:path"
@@ -8,7 +8,7 @@ import test from "node:test"
 import { Client } from "@modelcontextprotocol/sdk/client/index.js"
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import plugin from "./plugin/research.ts"
-import { publishSession, readSettings, saveMissingProject, type Identity } from "./lib/research.ts"
+import { configureSettings, publishSession, readSettings, resolveSettingsPath, saveMissingProject, type Identity } from "./lib/research.ts"
 
 const source = dirname(fileURLToPath(import.meta.url))
 async function settingsFile(dir: string) {
@@ -29,6 +29,7 @@ test("consulta directa y delegada: configuración, permisos y entregas de sesió
     plain: { id: "plain", parentID: "coord", agent: "explore", title: "Sin skill", created: 1, directory: dir },
     custom: { id: "custom", agent: "investigador", primary: true, title: "Pregunta personalizada", created: 1, directory: dir },
     customCode: { id: "customCode", parentID: "custom", agent: "explore", skill: "lee-codigo", title: "Código", created: 1, directory: dir },
+    genericReader: { id: "genericReader", parentID: "custom", agent: "lector-local", skill: "lee-codigo", title: "Código genérico", created: 1, directory: dir },
   }
   const opts = { settingsPath: path,
     get: async (id: string) => nodes[id] ?? Promise.reject(new Error("Sesión desconocida")) }
@@ -71,6 +72,8 @@ test("consulta directa y delegada: configuración, permisos y entregas de sesió
       files: { "resumen-ejecutivo.md": "Resumen", "informe-detallado.md": "Informe" } }, opts)).guardado, true)
     assert.equal((await publishSession({ sessionID: "customCode", agent: "explore", topic: "código",
       files: { "investigacion.md": "Código" } }, opts)).guardado, true)
+    assert.equal((await publishSession({ sessionID: "genericReader", agent: "lector-local", topic: "código",
+      files: { "investigacion.md": "Código sin nombre de agente específico" } }, opts)).guardado, true)
     assert.match(await readFile(join(first.sesion, "indice.md"), "utf8"), /fuente:1/)
     await assert.rejects(publishSession({ sessionID: "docs", agent: "explore", topic: "pagos",
       files: { "investigacion.md": "no" } }, opts), /agente/)
@@ -120,11 +123,12 @@ test("explore distingue la skill cargada y conserva los permisos de cada lector"
   const before = hooks["tool.execute.before"]!
   await assert.rejects(before({ tool: "read", sessionID: "mixed", callID: "mixed" }, { args: {} }), /incompatibles/)
   await assert.rejects(before({ tool: "edit", sessionID: "code", callID: "a" }, { args: {} }), /restringida/)
+  await assert.rejects(before({ tool: "task", sessionID: "code", callID: "nested" }, { args: {} }), /anidadas/)
   await assert.rejects(before({ tool: "bash", sessionID: "code", callID: "b" }, { args: { command: "git status; echo hola" } }), /no permitido/)
   await before({ tool: "bash", sessionID: "code", callID: "c" }, { args: { command: "git status --short" } })
   await before({ tool: "bash", sessionID: "code", callID: "codegraph" }, { args: { command: 'codegraph status "C:\\workspace" --json' } })
-  await before({ tool: "publish_code_report", sessionID: "code", callID: "publish" }, { args: {} })
-  await assert.rejects(before({ tool: "publish_code_report", sessionID: "docs", callID: "publish-docs" }, { args: {} }), /lee-codigo/)
+  await assert.rejects(before({ tool: "publish_code_report", sessionID: "code", callID: "publish" }, { args: {} }), /agente principal/)
+  await assert.rejects(before({ tool: "publish_documentation_report", sessionID: "docs", callID: "publish-docs" }, { args: {} }), /agente principal/)
   await assert.rejects(before({ tool: "skill", sessionID: "code", callID: "switch" }, { args: { name: "lee-docs" } }), /única skill/)
   await assert.rejects(before({ tool: "bash", sessionID: "plain", callID: "plain" }, { args: { command: "git status" } }), /no permitido/)
   await assert.rejects(before({ tool: "bash", sessionID: "failed", callID: "failed" }, { args: { command: "git status" } }), /no permitido/)
@@ -140,8 +144,8 @@ test("explore distingue la skill cargada y conserva los permisos de cada lector"
   assert.deepEqual(JSON.parse(await tools.research_settings.execute({ action: "read" }, context) as string).skills, (await readSettings(path)).skills)
   await assert.rejects(tools.research_settings.execute({ action: "read" }, { agent: "explore", sessionID: "docs" } as never), /Solo el agente principal/)
   await assert.rejects(tools.research_settings.execute({ action: "saveMissing", values: {} }, { agent: "explore", sessionID: "code" } as never), /Solo el agente principal/)
-  await assert.rejects(tools.publish_code_report.execute({ contenido: "No" }, { agent: "explore", sessionID: "docs" } as never), /skill/)
-  const report = JSON.parse(await tools.publish_code_report.execute({ contenido: "Código", fuentes: ["archivo.ts:1"] }, { agent: "explore", sessionID: "code", messageID: "report" } as never) as string)
+  await assert.rejects(tools.publish_code_report.execute({ contenido: "No" }, { agent: "explore", sessionID: "docs" } as never), /agente principal/)
+  const report = JSON.parse(await tools.publish_code_report.execute({ contenido: "Código", fuentes: ["archivo.ts:1"] }, context) as string)
   assert.equal(await readFile(report.rutas["investigacion.md"], "utf8"), "Código")
   const pair = { slug: "consulta", resumen_ejecutivo: "Resumen", informe_detallado: "Informe", investigacion_documentacion: "Docs" }
   const first = JSON.parse(await tools.write_report_pair.execute(pair, context) as string)
@@ -154,6 +158,15 @@ test("explore distingue la skill cargada y conserva los permisos de cada lector"
   settings.skills["necesito-saber"].guardarEntregablesEnSesion = false
   await writeFile(path, JSON.stringify(settings))
   assert.deepEqual(JSON.parse(await tools.write_report_pair.execute(pair, context) as string), { guardado: false })
+  settings.skills["lee-docs"].guardarEntregablesEnSesion = true
+  await writeFile(path, JSON.stringify(settings))
+  const docsOnly = JSON.parse(await tools.publish_documentation_report.execute({ contenido: "Documentación independiente" }, context) as string)
+  assert.equal(await readFile(docsOnly.rutas["investigacion-documentacion.md"], "utf8"), "Documentación independiente")
+  const legacy = JSON.parse(await tools.write_report_pair.execute(pair, context) as string)
+  assert.deepEqual(Object.keys(legacy.rutas), ["investigacion-documentacion.md"])
+  const configured = JSON.parse(await tools.research_settings.execute({ action: "configure", changes: { skills: { "necesito-saber": { modoLectura: "secuencial" } } } }, context) as string)
+  assert.equal(configured.archivo, path)
+  assert.equal(configured.skills["necesito-saber"].modoLectura, "secuencial")
   settings.skills["necesito-saber"].especialistasPermitidos = ["codigo"]
   await writeFile(path, JSON.stringify(settings))
   await assert.rejects(before({ tool: "skill", sessionID: "plain", callID: "disabled" }, { args: { name: "lee-docs" } }), /deshabilitado/)
@@ -178,8 +191,7 @@ test("instalación real, migración y actualización conservan ajustes y archivo
     assert.deepEqual(await readSettings(path), JSON.parse(await readFile(join(source, "research-settings.example.json"), "utf8")))
     const fresh = JSON.parse(await readFile(join(configDir, "opencode.json"), "utf8"))
     assert.equal(fresh.subagent_depth, undefined)
-    assert.equal(fresh.agent.explore.permission.publish_code_report, "allow")
-    assert.equal(fresh.agent.explore.permission.task, "deny")
+    assert.equal(fresh.agent, undefined)
     assert.deepEqual(await readdir(join(configDir, "plugin")), ["research.ts"])
 
     const settings = await readSettings(path)
@@ -195,22 +207,22 @@ test("instalación real, migración y actualización conservan ajustes y archivo
       await mkdir(dirname(join(configDir, file)), { recursive: true })
       await writeFile(join(configDir, file), "Archivo previo")
     }
-    await writeFile(join(dir, "opencode.json"), JSON.stringify({ $schema: fresh.$schema, model: "openai/modelo-anfitrion", agent: { explore: { permission: {
+    await writeFile(join(configDir, "opencode.json"), JSON.stringify({ $schema: fresh.$schema, model: "openai/modelo-anfitrion", agent: { explore: { permission: {
       mcp_board_read: "allow", agent_settings: "allow", publish_agent_deliverable: "allow", edit: "allow",
     } } } }))
     install(dir)
     assert.deepEqual(await readSettings(path), settings)
-    await assert.rejects(lstat(join(configDir, "agent-settings.json")), { code: "ENOENT" })
-    assert.deepEqual(await readdir(join(configDir, "plugin")), ["research.ts"])
-    assert.deepEqual(await readdir(join(configDir, "tools")), ["anfitrion.ts"])
-    assert.deepEqual(await readdir(join(configDir, "agents")), [])
-    assert.deepEqual(await readdir(join(configDir, "agent")), [])
-    const config = JSON.parse(await readFile(join(dir, "opencode.json"), "utf8"))
+    assert.ok((await lstat(join(configDir, "agent-settings.json"))).isFile())
+    assert.deepEqual((await readdir(join(configDir, "plugin"))).sort(), ["agent-session.ts", "markitdown-utf8.ts", "research.ts"])
+    assert.ok((await readdir(join(configDir, "tools"))).includes("anfitrion.ts"))
+    assert.deepEqual(await readdir(join(configDir, "agents")), ["lector-codigo.md"])
+    assert.deepEqual(await readdir(join(configDir, "agent")), ["lector-docs.md"])
+    const config = JSON.parse(await readFile(join(configDir, "opencode.json"), "utf8"))
     assert.equal(config.model, "openai/modelo-anfitrion")
     assert.equal(config.agent.explore.permission.mcp_board_read, "allow")
-    assert.equal(config.agent.explore.permission.edit, "deny")
-    assert.equal(config.agent.explore.permission.agent_settings, undefined)
-    assert.equal(config.agent.explore.permission.publish_agent_deliverable, undefined)
+    assert.equal(config.agent.explore.permission.edit, "allow")
+    assert.equal(config.agent.explore.permission.agent_settings, "allow")
+    assert.equal(config.agent.explore.permission.publish_agent_deliverable, "allow")
     settings.skills["lee-codigo"].guardarEntregablesEnSesion = false
     await writeFile(path, JSON.stringify(settings))
     install(dir)
@@ -219,6 +231,12 @@ test("instalación real, migración y actualización conservan ajustes y archivo
     await writeFile(path, JSON.stringify({ ...settings, skills: { pregunta: coordinator, ...readers } }))
     install(dir)
     assert.deepEqual(await readSettings(path), settings)
+    const common = join(dir, "research-settings.json")
+    await cp(path, common)
+    await rm(path)
+    install(dir)
+    assert.deepEqual(await readSettings(common), settings)
+    await assert.rejects(lstat(path), { code: "ENOENT" })
   } finally { await rm(dir, { recursive: true, force: true }) }
 })
 
@@ -233,11 +251,22 @@ test("Copilot migra el nombre conservando ajustes y publicación de informes", {
   const path = join(dir, ".github", "research-settings.json")
   await mkdir(dirname(path), { recursive: true })
   await writeFile(path, JSON.stringify({ ...settings, skills: { pregunta: coordinator, ...readers } }))
-  const installed = spawnSync(process.execPath, [join(source, "scripts", "setup-copilot.mjs")], {
+  const vscode = join(dir, ".vscode", "mcp.json")
+  await mkdir(dirname(vscode), { recursive: true })
+  await writeFile(vscode, '// Conector ajeno del anfitrión\n{"servers":{"externo":{"type":"stdio","command":"otro","args":[]}},}\n')
+  const install = () => spawnSync(process.execPath, [join(source, "scripts", "setup-copilot.mjs")], {
     cwd: dir, encoding: "utf8", timeout: 60000,
     env: { ...process.env, npm_config_offline: "true", npm_config_audit: "false", npm_config_fund: "false" },
   })
+  const installed = install()
   assert.equal(installed.status, 0, installed.stdout + installed.stderr + (installed.error ?? ""))
+  assert.deepEqual(await readSettings(path), settings)
+  const configured = await readFile(vscode, "utf8")
+  assert.match(configured, /Conector ajeno del anfitrión/)
+  assert.match(configured, /"externo"/)
+  const repeated = install()
+  assert.equal(repeated.status, 0, repeated.stdout + repeated.stderr + (repeated.error ?? ""))
+  assert.equal(await readFile(vscode, "utf8"), configured)
   assert.deepEqual(await readSettings(path), settings)
   const client = new Client({ name: "research-test", version: "1.0.0" })
   t.after(() => client.close())
@@ -254,16 +283,161 @@ test("Copilot migra el nombre conservando ajustes y publicación de informes", {
   assert.equal(report.guardado, true)
   assert.match(report.rutas["informe-detallado.md"], /01-necesito-saber/)
   assert.equal(await readFile(report.rutas["investigacion-documentacion.md"], "utf8"), "Documentación")
+  const changed = await invoke("research_settings", { action: "configure", changes: {
+    skills: { "necesito-saber": { guardarEntregablesEnSesion: false, modoLectura: "secuencial" } },
+    proyecto: { board: { url: "https://board.example/project", proveedor: "otro-sistema" } },
+  } })
+  assert.equal(changed.archivo, path)
+  assert.equal(changed.proyecto.repositorio, dir)
+  const docs = await invoke("publish_documentation_report", { investigacion, contenido: "Documentación independiente" })
+  assert.equal(await readFile(docs.rutas["investigacion-documentacion.md"], "utf8"), "Documentación independiente")
+  const code = await invoke("publish_code_report", { investigacion, contenido: "Código desde el principal" })
+  assert.equal(await readFile(code.rutas["investigacion.md"], "utf8"), "Código desde el principal")
+  assert.equal(code.sesion, docs.sesion)
+  assert.deepEqual(await invoke("write_report_pair", { investigacion, resumen_ejecutivo: "Resumen", informe_detallado: "Informe" }), { guardado: false })
 })
 
 test("las skills solo enlazan recursos existentes y explican las tools instaladas", async () => {
-  for (const name of ["necesito-saber", "lee-codigo", "lee-docs"]) {
+  for (const name of ["setup", "necesito-saber", "lee-codigo", "lee-docs"]) {
     const dir = join(source, ".apm", "skills", name)
     const markdown = await readFile(join(dir, "SKILL.md"), "utf8")
     assert.match(markdown, new RegExp(`^---\\r?\\nname: ${name}\\r?\\ndescription: .+`, "m"))
     for (const [, target] of markdown.matchAll(/\]\(([^)]+)\)/g)) {
       assert.ok((await lstat(resolve(dir, target))).isFile(), `${name}: ${target}`)
     }
-    assert.doesNotMatch(markdown, /agent_settings|coordinator_defaults|publish_agent_deliverable|agentes\./)
+    assert.doesNotMatch(markdown, /agent_settings|coordinator_defaults|publish_agent_deliverable|\bagentes\./)
+    assert.doesNotMatch(markdown, /OpenCode|Copilot|Jira|Azure DevOps|GitHub|\.opencode|\.github|setup-opencode|setup-copilot/i)
   }
+  async function checkReferences(dir: string) {
+    for (const item of await readdir(dir, { withFileTypes: true })) {
+      const path = join(dir, item.name)
+      if (item.isDirectory()) await checkReferences(path)
+      else if (item.name.endsWith(".md")) {
+        const text = await readFile(path, "utf8")
+        assert.doesNotMatch(text, /OpenCode|Copilot|Jira|Azure DevOps|GitHub|\.opencode|\.github|setup-opencode|setup-copilot/i)
+        for (const [, target] of text.matchAll(/\]\(([^)]+)\)/g)) assert.ok((await lstat(resolve(dir, target))).isFile(), `${path}: ${target}`)
+      }
+    }
+  }
+  await checkReferences(join(source, ".apm", "skills"))
+})
+
+test("ajustes antiguos, proveedor abierto y parches mínimos validados", async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), "research-settings-"))
+  t.after(() => rm(dir, { recursive: true, force: true }))
+  const path = await settingsFile(dir)
+  const old = await readSettings(path)
+  delete old.skills["necesito-saber"].modoLectura
+  await writeFile(path, JSON.stringify(old))
+  const before = await readFile(path, "utf8")
+  assert.equal((await readSettings(path)).skills["necesito-saber"].modoLectura ?? "auto", "auto")
+  assert.equal(await readFile(path, "utf8"), before)
+  const changed = await configureSettings({ proyecto: { board: { url: "https://custom.example/project" } },
+    skills: { "lee-docs": { guardarEntregablesEnSesion: false }, "necesito-saber": { modoLectura: "secuencial" } } }, path)
+  assert.equal(changed.proyecto.board.url, "https://custom.example/project")
+  assert.equal(changed.skills["necesito-saber"].maxRepreguntasEspecialistas, old.skills["necesito-saber"].maxRepreguntasEspecialistas)
+  assert.deepEqual(changed.sesiones, old.sesiones)
+  await configureSettings({ proyecto: { board: { proveedor: "sistema-abierto" } } }, path)
+  assert.equal((await readSettings(path)).proyecto.board.proveedor, "sistema-abierto")
+  const valid = await readFile(path, "utf8")
+  for (const patch of [
+    { proyecto: { board: { url: "http://custom.example/project" } } },
+    { proyecto: { repositorio: "relativo" } },
+    { proyecto: { carpetasDocumentales: ["relativa"] } },
+    { skills: { "necesito-saber": { modoLectura: "inventado" } } },
+    { sesiones: { carpetaRaiz: "../fuera" } },
+    { desconocido: true },
+  ]) await assert.rejects(configureSettings(patch as never, path))
+  assert.equal(await readFile(path, "utf8"), valid)
+  await saveMissingProject({ board: { proveedor: "otro", url: "https://otro.example" } }, path)
+  assert.equal(await readFile(path, "utf8"), valid)
+})
+
+test("resolución compartida prioriza selección, integración y común; excluye paquetes y pide ambigüedad", async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), "research-resolver-"))
+  t.after(() => rm(dir, { recursive: true, force: true }))
+  const common = join(dir, "research-settings.json")
+  const active = await settingsFile(dir)
+  assert.equal(await resolveSettingsPath(dir, active, "seleccion.json"), join(dir, "seleccion.json"))
+  await cp(active, common)
+  assert.equal(await resolveSettingsPath(dir, active), active)
+  assert.equal(await resolveSettingsPath(dir), common)
+  await rm(common)
+  const ignored = join(dir, "apm_modules", "package", "research-settings.json")
+  await mkdir(dirname(ignored), { recursive: true })
+  await cp(active, ignored)
+  const nested = join(dir, ".worktrees", "otro", ".github", "research-settings.json")
+  await mkdir(dirname(nested), { recursive: true })
+  await mkdir(join(dir, ".worktrees", "otro", ".git"))
+  await cp(active, nested)
+  const example = join(dir, "docs", "examples", "research-settings.json")
+  await mkdir(dirname(example), { recursive: true })
+  await cp(active, example)
+  assert.equal(await resolveSettingsPath(dir), active)
+  const second = join(dir, ".config", "research-settings.json")
+  await mkdir(dirname(second), { recursive: true })
+  await cp(active, second)
+  await assert.rejects(resolveSettingsPath(dir), /Selecciona la configuración/)
+})
+
+test("los ocho estados de guardado son independientes al publicar desde un principal", async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), "research-saving-"))
+  t.after(() => rm(dir, { recursive: true, force: true }))
+  const path = await settingsFile(dir)
+  const node: Identity = { id: "main", agent: "personalizado", primary: true, title: "Guardados", created: Date.now(), directory: dir }
+  const options = { settingsPath: path, get: async () => node }
+  for (let mask = 0; mask < 8; mask++) {
+    await configureSettings({ skills: {
+      "lee-codigo": { guardarEntregablesEnSesion: Boolean(mask & 1) },
+      "lee-docs": { guardarEntregablesEnSesion: Boolean(mask & 2) },
+      "necesito-saber": { guardarEntregablesEnSesion: Boolean(mask & 4) },
+    } }, path)
+    const result = await publishSession({ sessionID: "main", agent: node.agent, topic: "guardados", group: "consulta", files: {
+      "investigacion.md": `Código ${mask}`, "investigacion-documentacion.md": `Docs ${mask}`,
+      "resumen-ejecutivo.md": `Resumen ${mask}`, "informe-detallado.md": `Informe ${mask}`,
+    } }, options)
+    assert.equal(result.guardado, Boolean(mask))
+    if (!result.guardado) continue
+    assert.equal(Boolean(result.rutas["investigacion.md"]), Boolean(mask & 1))
+    assert.equal(Boolean(result.rutas["investigacion-documentacion.md"]), Boolean(mask & 2))
+    assert.equal(Boolean(result.rutas["informe-detallado.md"]), Boolean(mask & 4))
+    assert.equal(Boolean(result.rutas["resumen-ejecutivo.md"]), Boolean(mask & 4))
+    for (const path of Object.values(result.rutas)) assert.ok((await readFile(path, "utf8")).includes(String(mask)))
+  }
+  await configureSettings({ skills: { "necesito-saber": { especialistasPermitidos: ["documentacion"] } } }, path)
+  await assert.rejects(publishSession({ sessionID: "main", agent: node.agent, topic: "no permitido", files: { "investigacion.md": "Código" } }, options), /Especialista deshabilitado/)
+})
+
+test("los instaladores detectan conflictos antes de aplicar archivos", async (t) => {
+  for (const target of ["opencode", "copilot"]) {
+    const dir = await mkdtemp(join(tmpdir(), "research-preflight-"))
+    t.after(() => rm(dir, { recursive: true, force: true }))
+    const path = target === "opencode" ? join(dir, "opencode.jsonc") : join(dir, ".vscode", "mcp.json")
+    await mkdir(dirname(path), { recursive: true })
+    const text = target === "opencode" ? "{ agent: invalid }" : '{"servers":{"research-control":{"command":"ajeno","args":["ajeno.ts"]}}}'
+    await writeFile(path, text)
+    const result = spawnSync(process.execPath, [join(source, "scripts", `setup-${target}.mjs`)], { cwd: dir, encoding: "utf8", timeout: 10000 })
+    assert.notEqual(result.status, 0)
+    assert.equal(await readFile(path, "utf8"), text)
+    await assert.rejects(lstat(join(dir, target === "opencode" ? ".opencode" : ".github")), { code: "ENOENT" })
+  }
+})
+
+test("un fallo de guardado o una ruta enlazada no publican entregas ni modifican el destino", async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), "research-routes-"))
+  t.after(() => rm(dir, { recursive: true, force: true }))
+  const path = await settingsFile(dir)
+  const node: Identity = { id: "main", agent: "principal", primary: true, title: "Rutas", created: Date.now(), directory: dir }
+  const options = { settingsPath: path, get: async () => node }
+  const input = { sessionID: "main", agent: node.agent, topic: "Rutas", files: { "investigacion-documentacion.md": "Informe completo" } }
+  await writeFile(join(dir, "obstaculo"), "Conservar")
+  await configureSettings({ sesiones: { carpetaRaiz: "obstaculo/sesiones" } }, path)
+  await assert.rejects(publishSession(input, options))
+  assert.equal(await readFile(join(dir, "obstaculo"), "utf8"), "Conservar")
+  const target = join(dir, "destino")
+  await mkdir(target)
+  await symlink(target, join(dir, "enlace"), process.platform === "win32" ? "junction" : "dir")
+  await configureSettings({ sesiones: { carpetaRaiz: "enlace/sesiones" } }, path)
+  await assert.rejects(publishSession(input, options), /enlazada/)
+  assert.deepEqual(await readdir(target), [])
 })

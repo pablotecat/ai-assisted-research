@@ -2,12 +2,13 @@ import { createHash, randomUUID } from "node:crypto"
 import { link, lstat, mkdir, readFile, realpath, rename, rm, writeFile } from "node:fs/promises"
 import { basename, isAbsolute, join, relative, resolve, sep } from "node:path"
 import { z } from "zod"
+export { resolveSettingsPath } from "./settings-path.mjs"
 
 const nonEmpty = z.string().trim().min(1)
 const board = z.object({
-  proveedor: z.enum(["", "jira", "azdo", "github"]),
+  proveedor: z.string().trim().optional(),
   url: z.string().refine((s) => !s || (() => { try { return new URL(s).protocol === "https:" } catch { return false } })(), "URL HTTPS requerida"),
-}).strict().refine((b) => Boolean(b.proveedor) === Boolean(b.url), "Indica proveedor y URL juntos")
+}).strict().refine((b) => !b.proveedor || Boolean(b.url), "Indica la URL del board")
 export const projectSchema = z.object({
   repositorio: z.string().refine((s) => !s || isAbsolute(s)),
   referencia: z.string(),
@@ -17,10 +18,10 @@ export const projectSchema = z.object({
 const permitted = z.array(z.enum(["codigo", "documentacion"]))
   .min(1).max(2).refine((v) => new Set(v).size === v.length, "Especialistas repetidos")
 const saved = z.object({ guardarEntregablesEnSesion: z.boolean() }).strict()
-const settingsSchema = z.object({
+export const settingsSchema = z.object({
   proyecto: projectSchema,
   skills: z.object({
-    "necesito-saber": saved.extend({ maxRepreguntasEspecialistas: z.number().int().min(0), especialistasPermitidos: permitted }),
+    "necesito-saber": saved.extend({ maxRepreguntasEspecialistas: z.number().int().min(0), especialistasPermitidos: permitted, modoLectura: z.enum(["auto", "paralelo", "secuencial"]).optional() }),
     "lee-codigo": saved,
     "lee-docs": saved,
   }).strict(),
@@ -28,8 +29,35 @@ const settingsSchema = z.object({
 }).strict()
 export type ResearchSettings = ReturnType<typeof settingsSchema.parse>
 
+export const settingsPatchSchema = z.object({
+  proyecto: projectSchema.partial().extend({ board: z.object(board.shape).partial().strict().optional() }).strict().optional(),
+  skills: z.object({
+    "necesito-saber": settingsSchema.shape.skills.shape["necesito-saber"].partial().optional(),
+    "lee-codigo": saved.partial().optional(),
+    "lee-docs": saved.partial().optional(),
+  }).strict().optional(),
+  sesiones: settingsSchema.shape.sesiones.partial().optional(),
+}).strict()
+
 export async function readSettings(path: string): Promise<ResearchSettings> {
   return settingsSchema.parse(JSON.parse(await readFile(path, "utf8")))
+}
+
+export async function configureSettings(values: z.infer<typeof settingsPatchSchema>, path: string) {
+  const patch = settingsPatchSchema.parse(values)
+  return locked(`${path}.lock`, async () => {
+    const current = await readSettings(path)
+    const skills = { ...current.skills }
+    for (const name of Object.keys(skills) as (keyof typeof skills)[])
+      Object.assign(skills, { [name]: { ...skills[name], ...patch.skills?.[name] } })
+    const next = settingsSchema.parse({ ...current,
+      proyecto: { ...current.proyecto, ...patch.proyecto, board: { ...current.proyecto.board, ...patch.proyecto?.board } },
+      skills, sesiones: { ...current.sesiones, ...patch.sesiones },
+    })
+    if (JSON.stringify(current) !== JSON.stringify(await readSettings(path))) throw new Error("La configuración cambió durante el guardado")
+    await saveJson(path, next)
+    return readSettings(path)
+  })
 }
 
 export async function saveMissingProject(values: Partial<ResearchSettings["proyecto"]>, path: string) {
@@ -56,12 +84,12 @@ export type ReaderSkill = "lee-codigo" | "lee-docs"
 export type Identity = { id: string; parentID?: string; agent: string; primary?: boolean; skill?: ReaderSkill; title: string; created: number; directory: string }
 export type Resolver = (id: string, messageID?: string) => Promise<Identity>
 
-type Role = "pregunta" | "codigo"
+type Role = "pregunta" | "codigo" | "documentacion"
 function roleOf(node: Identity): Role | undefined {
   if (node.primary) return "pregunta"
-  return node.agent === "explore" && node.skill === "lee-codigo" ? "codigo" : undefined
+  return node.skill === "lee-codigo" ? "codigo" : node.skill === "lee-docs" ? "documentacion" : undefined
 }
-const labels: Record<Role, string> = { pregunta: "necesito-saber", codigo: "lee-codigo" }
+const labels: Record<Role, string> = { pregunta: "necesito-saber", codigo: "lee-codigo", documentacion: "lee-docs" }
 type Entry = { parent?: string; agent: Role; folder: string }
 type State = { root: string; entries: Record<string, Entry>; deliveries: string[]; sources: string[] }
 
@@ -117,7 +145,7 @@ async function chain(id: string, messageID: string | undefined, get: Resolver) {
   }
   nodes.reverse()
   for (let i = 1; i < nodes.length; i++) {
-    if (roleOf(nodes[i]) !== "codigo" || roleOf(nodes[i - 1]) !== "pregunta")
+    if (roleOf(nodes[i]) === "pregunta" || roleOf(nodes[i - 1]) !== "pregunta")
       throw new Error("Delegación no autorizada")
   }
   return nodes
@@ -180,7 +208,7 @@ export async function publishSession(input: {
   sessionID: string; messageID?: string; agent: string; topic: string;
   files: Record<string, string>; group?: "consulta"; sources?: string[]
 }, options: { get: Resolver; settingsPath: string }): Promise<Publication> {
-  const names = Object.keys(input.files)
+  let names = Object.keys(input.files)
   if (!names.length || names.some((name) => !input.files[name]?.trim())) throw new Error("Entregables vacíos")
   names.forEach(safeName)
   if (input.group && input.group !== "consulta") throw new Error("Grupo no permitido")
@@ -188,9 +216,14 @@ export async function publishSession(input: {
   if (nodes.at(-1)!.agent !== input.agent) throw new Error("Autor de publicación diferente")
   const settings = await readSettings(options.settingsPath)
   const role = roleOf(nodes.at(-1)!)!
-  if (!settings.skills[role === "pregunta" ? "necesito-saber" : "lee-codigo"].guardarEntregablesEnSesion) return { guardado: false }
-  if (role === "codigo" && !settings.skills["necesito-saber"].especialistasPermitidos.includes("codigo") && nodes.length > 1)
-    throw new Error("Especialista deshabilitado")
+  const kinds: Record<string, Role> = { "investigacion.md": "codigo", "investigacion-documentacion.md": "documentacion", "resumen-ejecutivo.md": "pregunta", "informe-detallado.md": "pregunta" }
+  for (const name of names) {
+    const kind = kinds[name]
+    if (!kind || (role !== "pregunta" && role !== kind)) throw new Error("Entregable no autorizado para el agente lector")
+    if (kind !== "pregunta" && !settings.skills["necesito-saber"].especialistasPermitidos.includes(kind)) throw new Error("Especialista deshabilitado")
+  }
+  names = names.filter((name) => settings.skills[labels[kinds[name]] as keyof ResearchSettings["skills"]].guardarEntregablesEnSesion)
+  if (!names.length) return { guardado: false }
 
   const root = resolve(nodes[0].directory, settings.sesiones.carpetaRaiz)
   await checkExistingAncestors(root)

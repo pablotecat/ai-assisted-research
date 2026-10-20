@@ -1,15 +1,16 @@
 ---
 name: lee-docs
-description: Investiga requisitos e intención documentada en archivos locales o issues de Jira, Azure DevOps y GitHub. Úsala para responder preguntas documentales con citas verificables y conflictos explícitos.
+description: Investiga requisitos e intención documentada en archivos locales o sistemas de seguimiento de trabajo. Úsala para responder preguntas documentales con citas verificables y conflictos explícitos.
+user-invocable: false
 ---
 
 # Lee docs
 
-En GitHub Copilot, lee primero [la integración Copilot](references/copilot.md) para usar el lector especializado y el conversor restringido. Conserva los criterios de evidencia y el formato de informe siguientes.
+Investiga la **intención funcional documentada**. Entrega el informe completo en conversación, también cuando te invoque `necesito-saber`. El agente principal gestiona ajustes y guardado; esta skill consulta fuentes y no publica archivos. Como lector delegado, carga solo esta skill y devuelve el informe al coordinador sin nuevas delegaciones. Si te faltan herramientas o permisos, comunica el bloqueo.
 
-Investiga la **intención funcional documentada**. Entrega el informe completo en conversación, también cuando te invoque `necesito-saber`. En OpenCode el agente principal gestiona su guardado mediante `write_report_pair`; esta skill consulta fuentes y no publica archivos.
+En lectura secuencial o de una sola fuente, el principal aplica las mismas reglas de evidencia en su contexto compartido. Para consultas directas resuelve fuentes y guardado mediante el [contrato compartido](../necesito-saber/references/proyecto.md). El principal conserva el informe documental según su propio guardado, aunque no se guarde una síntesis de la consulta. Si falta preparación, sugiere `/setup` sin abrir la entrevista y conserva los hallazgos independientes comprobados.
 
-Recibe `PREGUNTA`, `LOCAL_DOCUMENT_ROOTS` y/o `BOARD` (`proveedor`: `jira`, `azdo` o `github`; `url` HTTPS del proyecto o repositorio). Puede recibir `CONTEXTO`, `ALCANCE_ADICIONAL` (épica, componente, entrega o documentos), identificadores y alcance del proyecto, y `FECHA_DE_CORTE` para consultas históricas. Usa solo raíces y proyectos confirmados; si no hay fuente, solicita una raíz local o proveedor y URL del board. Si la ambigüedad cambia el corpus, pide el dato preciso antes de atribuir cobertura; si admite interpretaciones separables, investígalas por separado.
+Recibe `PREGUNTA`, `LOCAL_DOCUMENT_ROOTS` y/o `BOARD` (`url` HTTPS del proyecto, repositorio o tablero; `proveedor` identifica el sistema cuando sea necesario para seleccionar el conector). Puede recibir `CONTEXTO`, `ALCANCE_ADICIONAL` (épica, componente, entrega o documentos), identificadores y alcance del proyecto, y `FECHA_DE_CORTE` para consultas históricas. Usa solo raíces y proyectos confirmados; si no hay fuente, solicita una raíz local o URL del board y los datos de conexión imprescindibles. Si la ambigüedad cambia el corpus, pide el dato preciso antes de atribuir cobertura; si admite interpretaciones separables, investígalas por separado.
 
 ## Investigación
 
@@ -23,13 +24,13 @@ Recibe `PREGUNTA`, `LOCAL_DOCUMENT_ROOTS` y/o `BOARD` (`proveedor`: `jira`, `azd
 
 ## Autoridad y suficiencia
 
-Describe lo que expresan las fuentes. La cronología informa de cambios, pero no establece por sí sola una jerarquía. Entre documentos locales o entre board y documentos no hay precedencia predeterminada: registra versión/estado y fecha, conserva formulaciones incompatibles y marca la conclusión como `NO DETERMINADO`. Aplica reglas de autoridad del usuario solo a las fuentes a las que se refieren; para ranking/exclusiones Jira, consulta las reglas de [boards](references/boards.md). Separa `HECHO`, `INFERENCIA` y decisiones pendientes.
+Describe lo que expresan las fuentes. La cronología informa de cambios, pero no establece por sí sola una jerarquía. Entre documentos locales o entre board y documentos no hay precedencia predeterminada: registra versión/estado y fecha, conserva formulaciones incompatibles y marca la conclusión como `NO DETERMINADO`. Aplica reglas de autoridad del usuario solo a las fuentes a las que se refieren; para ranking y exclusiones de estados, consulta las reglas de [boards](references/boards.md). Separa `HECHO`, `INFERENCIA` y decisiones pendientes.
 
 Marca `SUFICIENTE` solo si se cumplen **todas**:
 
 - La respuesta se ajusta a la pregunta y distingue las fuentes realmente usadas.
 - Cada afirmación material tiene una cita original localizable.
-- Los issues decisivos tienen ID, URL, estado y `updated` si el proveedor los ofrece; una precedencia explícita aplicable queda documentada.
+- Los issues decisivos tienen ID, URL, estado y fecha de actualización si el sistema los ofrece; una precedencia explícita aplicable queda documentada.
 - Los documentos decisivos tienen ruta y localizador interno; conservas sus discrepancias.
 - Has buscado cambios, excepciones y contradicciones en todo el alcance confirmado.
 - Declaras cobertura, paginación relevante y fuentes inaccesibles.
@@ -42,9 +43,7 @@ En otro caso marca `INSUFICIENTE`: explica la evidencia concreta que falta, su e
 Cita la fuente **original**, con campo/sección/comentario para issues y página, encabezado, tabla o párrafo para documentos:
 
 ```text
-[JIRA: PROJ-123 | Estado | updated AAAA-MM-DD | URL | localizador]
-[AZDO: proyecto#123 | Estado | updated AAAA-MM-DD | URL | localizador]
-[GITHUB: owner/repo#123 | Estado | updated AAAA-MM-DD | URL | localizador]
+[ISSUE: proyecto/ID | Estado | actualizado AAAA-MM-DD | URL | localizador]
 [DOC: ruta/archivo.ext | versión/fecha si consta | localizador]
 ```
 
@@ -63,13 +62,13 @@ Indica los campos no disponibles. Una cita textual breve complementa el localiza
 ## Alcance y cobertura
 | Fuente | Ámbito revisado | Resultado | Limitaciones |
 |---|---|---|---|
-| Board (proveedor/URL) | ... | ... | ... |
+| Board (sistema/URL) | ... | ... | ... |
 | Documentos locales | ... | ... | ... |
 
 ## Hallazgos
 | ID | Tipo | Origen | Afirmación | Estado/versión y fecha | Evidencia |
 |---|---|---|---|---|---|
-| D-01 | HECHO | Jira / AzDO / GitHub / documento | ... | ... | [JIRA: ...] / [DOC: ...] |
+| D-01 | HECHO | Board / documento | ... | ... | [ISSUE: ...] / [DOC: ...] |
 
 ## Evolución en el board
 <cronología, IDs, estados y cambios>
@@ -90,7 +89,7 @@ Indica los campos no disponibles. Una cita textual breve complementa el localiza
 <URLs y documentos revisados>
 ```
 
-Indica «No aplica» para fuentes ausentes y «Ninguno/Ninguna» para apartados sin hallazgos. Devuelve siempre el informe en conversación. `necesito-saber` lo conserva como `investigacion-documentacion.md` si está habilitado en `skills.lee-docs` y el guardado de la consulta está activo; comunica rutas solo si el publicador confirma `guardado:true`. Conserva literalmente claves, títulos, estados, versiones y términos de dominio; responde en el idioma de la pregunta.
+Indica «No aplica» para fuentes ausentes y «Ninguno/Ninguna» para apartados sin hallazgos. Devuelve siempre el informe completo en conversación. El agente principal puede conservarlo como `investigacion-documentacion.md` según los ajustes y mecanismos de guardado disponibles; comunica solo las rutas confirmadas por ese mecanismo. Conserva literalmente claves, títulos, estados, versiones y términos de dominio; responde en el idioma de la pregunta.
 
 ## Límites operativos
 
