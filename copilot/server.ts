@@ -6,7 +6,7 @@ import { promisify } from "node:util"
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod"
-import { projectSchema, publishSession, readSettings, saveMissingProject, type Identity } from "../lib/research.ts"
+import { configureSettings, projectSchema, publishSession, readSettings, resolveSettingsPath, saveMissingProject, settingsPatchSchema, type Identity } from "../lib/research.ts"
 
 const execute = promisify(execFile)
 const parameters = process.argv.slice(2)
@@ -15,7 +15,7 @@ const role = parameters[parameters.indexOf("--role") + 1]
 if (!parameters.includes("--workspace") || !isAbsolute(workspace ?? "") || !["control", "codigo", "documentacion"].includes(role))
   throw new Error("Usa --workspace <ruta absoluta> --role control|codigo|documentacion")
 const host = await realpath(workspace)
-const settingsPath = join(host, ".github", "research-settings.json")
+const settingsPath = await resolveSettingsPath(host, join(host, ".github", "research-settings.json"), process.env.RESEARCH_SETTINGS_PATH)
 const registry = join(host, ".github", "research", "sessions")
 const server = new McpServer({ name: `research-${role}`, version: "0.1.0" })
 const text = z.string().trim().min(1)
@@ -61,7 +61,6 @@ async function publication(id: string) {
   if (record.id !== id) throw new Error("Sesión de investigación distinta")
   const nodes: Record<string, Identity> = {
     [id]: { ...record, agent: "copilot", primary: true, directory: host },
-    [`${id}-codigo`]: { id: `${id}-codigo`, parentID: id, agent: "explore", skill: "lee-codigo", title: "Código", created: record.created, directory: host },
   }
   return { settingsPath, get: async (node: string) => {
     if (!nodes[node]) throw new Error("Publicación fuera de la investigación")
@@ -70,12 +69,14 @@ async function publication(id: string) {
 }
 
 if (role === "control") {
-  register("research_settings", "Lee ajustes o guarda únicamente fuentes vacías confirmadas por el usuario.", {
-    action: z.enum(["read", "saveMissing"]), values: projectSchema.partial().strict().optional(),
-  }, async ({ action, values }) => {
-    if (action === "read") return readSettings(settingsPath)
-    if (!values) throw new Error("Faltan fuentes confirmadas")
-    return saveMissingProject(values, settingsPath)
+  register("research_settings", "Solo principal: read devuelve ajustes y archivo; saveMissing completa fuentes vacías; configure edita opciones seleccionadas y validadas sin reemplazar el resto.", {
+    action: z.enum(["read", "saveMissing", "configure"]), values: projectSchema.partial().strict().optional(), changes: settingsPatchSchema.optional(),
+  }, async ({ action, values, changes }) => {
+    if (action === "saveMissing" && !values) throw new Error("Faltan fuentes confirmadas")
+    if (action === "configure" && !changes) throw new Error("Faltan cambios seleccionados")
+    const settings = action === "read" ? await readSettings(settingsPath) : action === "configure"
+      ? await configureSettings(changes, settingsPath) : await saveMissingProject(values, settingsPath)
+    return { ...settings, archivo: settingsPath }
   })
   register("start_research", "Abre una investigación y devuelve su identificador. Reutilízalo en todas las entregas y repreguntas de esta consulta.", {
     tema: text,
@@ -89,9 +90,14 @@ if (role === "control") {
   register("publish_code_report", "Guarda el informe completo devuelto por el lector de código; respeta el flag de guardado y los especialistas permitidos.", {
     investigacion: sessionID, contenido: text, fuentes: sources,
   }, async ({ investigacion, contenido, fuentes }) => publishSession({
-    sessionID: `${investigacion}-codigo`, agent: "explore", topic: "Código", files: { "investigacion.md": contenido }, sources: fuentes,
+    sessionID: investigacion, agent: "copilot", topic: "Código", files: { "investigacion.md": contenido }, sources: fuentes,
   }, await publication(investigacion)))
-  register("write_report_pair", "Publica juntos resumen e informe completo; conserva el informe documental solo si está habilitado. Devuelve únicamente rutas realmente guardadas.", {
+  register("publish_documentation_report", "El principal guarda el informe completo devuelto por lee-docs aunque la consulta no se guarde; respeta especialistas y el guardado documental. Conserva las revisiones.", {
+    investigacion: sessionID, contenido: text, fuentes: sources,
+  }, async ({ investigacion, contenido, fuentes }) => publishSession({
+    sessionID: investigacion, agent: "copilot", topic: "Documentación", files: { "investigacion-documentacion.md": contenido }, sources: fuentes,
+  }, await publication(investigacion)))
+  register("write_report_pair", "El principal publica resumen e informe según necesito-saber; el documental opcional respeta lee-docs independientemente. Omite el documental si ya se publicó aparte. Devuelve solo rutas guardadas.", {
     investigacion: sessionID, resumen_ejecutivo: text, informe_detallado: text,
     investigacion_documentacion: text.optional(), fuentes: sources,
   }, async ({ investigacion, resumen_ejecutivo, informe_detallado, investigacion_documentacion, fuentes }) => {

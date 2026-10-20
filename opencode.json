@@ -12,7 +12,6 @@
         "websearch": "allow",
         "lsp": "allow",
         "question": "allow",
-        "publish_code_report": "allow",
         "external_directory": "ask",
         "doom_loop": "allow",
         "edit": "deny",

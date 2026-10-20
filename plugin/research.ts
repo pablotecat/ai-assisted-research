@@ -1,9 +1,9 @@
 import { tool, type Plugin } from "@opencode-ai/plugin"
 import { join } from "node:path"
-import { projectSchema, publishSession, readSettings, saveMissingProject, type Identity, type ReaderSkill } from "../lib/research.ts"
+import { configureSettings, projectSchema, publishSession, readSettings, resolveSettingsPath, saveMissingProject, settingsPatchSchema, type Identity, type ReaderSkill } from "../lib/research.ts"
 
 export default (async ({ client, directory }) => {
-  const settingsPath = join(directory, ".opencode", "research-settings.json")
+  const settingsPath = await resolveSettingsPath(directory, join(directory, ".opencode", "research-settings.json"), process.env.RESEARCH_SETTINGS_PATH)
   const primaryAgents = new Set(["build", "plan"])
   const isPrimaryAgent = (name: string) => primaryAgents.has(name)
   async function identity(id: string, messageID?: string): Promise<Identity> {
@@ -43,28 +43,40 @@ export default (async ({ client, directory }) => {
     },
     tool: {
       research_settings: tool({
-        description: "Lee los ajustes de las skills de investigación; guarda solo datos de proyecto vacíos confirmados por el usuario.",
-        args: { action: tool.schema.enum(["read", "saveMissing"]), values: projectSchema.partial().strict().optional() },
+        description: "Solo principal: read devuelve ajustes y archivo consumido; saveMissing completa fuentes vacías; configure modifica únicamente opciones seleccionadas y validadas, conservando el resto.",
+        args: { action: tool.schema.enum(["read", "saveMissing", "configure"]), values: projectSchema.partial().strict().optional(), changes: settingsPatchSchema.optional() },
         async execute(args, context) {
           if (!isPrimaryAgent(context.agent)) throw new Error("Solo el agente principal puede gestionar los ajustes")
           if (args.action === "saveMissing" && !args.values) throw new Error("Faltan valores confirmados")
-          return JSON.stringify(args.action === "read" ? await readSettings(settingsPath) : await saveMissingProject(args.values!, settingsPath))
+          if (args.action === "configure" && !args.changes) throw new Error("Faltan cambios seleccionados")
+          const settings = args.action === "read" ? await readSettings(settingsPath) : args.action === "configure"
+            ? await configureSettings(args.changes!, settingsPath) : await saveMissingProject(args.values!, settingsPath)
+          return JSON.stringify({ ...settings, archivo: settingsPath })
         },
       }),
       publish_code_report: tool({
-        description: "Publica investigacion.md de lee-codigo en su sesión verificada; devuelve guardado:false si su guardado está desactivado.",
+        description: "El principal publica investigacion.md completo recibido del lector de código; respeta especialistas y el guardado de lee-codigo independientemente de la consulta. Solo devuelve rutas confirmadas.",
         args: {
           contenido: tool.schema.string().min(1),
           fuentes: tool.schema.array(tool.schema.string()).optional(),
         },
         async execute(args, context) {
-          if (context.agent !== "explore") throw new Error("Agente no autorizado")
+          if (!isPrimaryAgent(context.agent)) throw new Error("Solo el agente principal puede publicar informes")
           return JSON.stringify(await publishSession({ sessionID: context.sessionID, messageID: context.messageID,
             agent: context.agent, topic: "investigacion", files: { "investigacion.md": args.contenido }, sources: args.fuentes }, publication))
         },
       }),
+      publish_documentation_report: tool({
+        description: "El principal publica investigacion-documentacion.md completo; respeta especialistas y el guardado de lee-docs aunque la consulta no se guarde. Conserva revisiones sin sobrescribir.",
+        args: { contenido: tool.schema.string().min(1), fuentes: tool.schema.array(tool.schema.string()).optional() },
+        async execute(args, context) {
+          if (!isPrimaryAgent(context.agent)) throw new Error("Solo el agente principal puede publicar informes")
+          return JSON.stringify(await publishSession({ sessionID: context.sessionID, messageID: context.messageID,
+            agent: context.agent, topic: "documentacion", files: { "investigacion-documentacion.md": args.contenido }, sources: args.fuentes }, publication))
+        },
+      }),
       write_report_pair: tool({
-        description: "Publica juntos resumen, informe detallado y, si procede, informe documental de necesito-saber; devuelve guardado:false si está desactivado.",
+        description: "El principal publica resumen e informe según el guardado de necesito-saber. Admite informe documental por compatibilidad y lo guarda según lee-docs, independientemente de la consulta; omítelo si ya se publicó aparte.",
         args: {
           slug: tool.schema.string().describe("Tema breve de la consulta"),
           resumen_ejecutivo: tool.schema.string().min(1),
@@ -87,6 +99,7 @@ export default (async ({ client, directory }) => {
     "tool.execute.before": async (input, output) => {
       const node = await identity(input.sessionID)
       if (node.agent !== "explore") return
+      if (input.tool === "task") throw new Error("Los lectores no pueden realizar delegaciones anidadas")
       if (input.tool === "skill") {
         const name = output.args?.name
         if (name !== "lee-codigo" && name !== "lee-docs") throw new Error("Skill no permitida para este lector")
@@ -94,8 +107,8 @@ export default (async ({ client, directory }) => {
         if (node.parentID && !(await readSettings(settingsPath)).skills["necesito-saber"].especialistasPermitidos.includes(name === "lee-codigo" ? "codigo" : "documentacion"))
           throw new Error("Especialista deshabilitado en research-settings.json")
       }
-      if (["edit", "write", "apply_patch"].includes(input.tool)) throw new Error("Escritura local restringida a los publicadores de sesión")
-      if (["publish_code_report", "lsp"].includes(input.tool) && node.skill !== "lee-codigo")
+      if (["edit", "write", "apply_patch", "publish_code_report", "publish_documentation_report", "write_report_pair"].includes(input.tool)) throw new Error("Escritura local restringida al agente principal")
+      if (input.tool === "lsp" && node.skill !== "lee-codigo")
         throw new Error("Herramienta reservada al lector que cargó lee-codigo")
       if (["webfetch", "websearch"].includes(input.tool) && node.skill === "lee-codigo")
         throw new Error("Herramienta documental no permitida para lee-codigo")

@@ -1,6 +1,6 @@
 name: ai-assisted-research
 version: 0.1.0
-description: Skills de investigación y contraste de código, documentos e issues para OpenCode y GitHub Copilot.
+description: Preparación interactiva e investigación de código y documentación por capacidades, con runtime opcional.
 targets:
   - opencode
   - copilot

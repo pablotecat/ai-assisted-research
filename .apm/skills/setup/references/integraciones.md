@@ -1,0 +1,10 @@
+# Integraciones opcionales
+
+La vía básica usa instrucciones de las skills, un archivo de ajustes y herramientas nativas disponibles. El runtime opcional puede aportar validación automatizada de ajustes, publicadores con historial/bloqueo y restricciones de herramientas/sesiones; consulta las capacidades efectivas de su adaptador. Su presencia no demuestra acceso al código, conversión, board ni subagentes.
+
+1. Detecta integración activa, configuración pertinente y paquete instalado mediante el manifiesto o registro real. Lee la documentación y el instalador del paquete antes de proponer su ejecución; los adaptadores y sus comandos se describen fuera de las skills, en el paquete. Ofrece solo la integración que corresponda al entorno y a la carpeta anfitriona elegida.
+2. Muestra archivos y permisos que cambiarían. Reutiliza la configuración existente y el archivo de investigación seleccionado; si el adaptador no puede consumirlo, ofrece la vinculación soportada o la vía básica. No instales sobre el repositorio de desarrollo del paquete ni ejecutes limpieza de archivos heredados para preparar la investigación.
+3. Ejecuta únicamente acciones elegidas. Mantén los permisos compartidos existentes salvo una selección expresa para cambiarlos. Si hay conflictos, resuélvelos antes de escribir. Si falla una fase posterior, registra los archivos aplicados, la dependencia o recarga pendiente y cómo reanudar.
+4. Tras la instalación, comprueba carga de herramientas, archivo anunciado por los ajustes, lectura/configuración, publicación y disponibilidad real de lectores. Una recarga pendiente sigue `PENDIENTE`. Las restricciones del anfitrión mandan; la vía básica no ofrece el aislamiento o la atomicidad de un adaptador por el mero hecho de usar las mismas skills.
+
+Sin runtime o terminal, continúa por las capacidades nativas que existan. Si no hay escritura, conserva las decisiones y los informes en conversación con el requisito concreto para guardarlos. La preparación de Git/Codegraph, conversión local y autenticación del board son comprobaciones independientes de instalar el runtime.

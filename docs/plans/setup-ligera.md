@@ -1,10 +1,10 @@
 # Plan de implementación: `/setup` ligera e interactiva
 
-- **Estado:** alcance confirmado mediante entrevista; pendiente de implementación.
+- **Estado:** implementación completada; verificación y alcance de los recorridos en [setup-ligera-verificacion.md](setup-ligera-verificacion.md).
 - **Fecha:** 2026-10-20.
-- **Rama:** `feature/agnostic-skills`.
+- **Rama de implementación:** `feature/setup-ligera` (sobre `feature/agnostic-skills`, conservando sus cambios previos).
 
-Este documento es el entregable de planificación. Su creación no implementa la skill ni modifica los archivos existentes.
+Este documento recoge el alcance acordado y sus criterios de aceptación. La implementación y su verificación están registradas en el documento enlazado arriba.
 
 ## 1. Objetivo
 
