@@ -6,13 +6,13 @@ user-invocable: false
 
 # Lee docs
 
-Investiga la **intención funcional documentada**. Entrega el informe completo en conversación, también cuando te invoque `necesito-saber`. El agente principal gestiona ajustes y guardado; esta skill consulta fuentes y no publica archivos. Como lector delegado, carga solo esta skill y devuelve el informe al coordinador sin nuevas delegaciones. Si te faltan herramientas o permisos, comunica el bloqueo.
+Investiga la **intención funcional documentada**. El agente principal gestiona ajustes, guardado y presentación al usuario; esta skill consulta fuentes y no publica archivos. Como lector delegado, carga solo esta skill y devuelve al coordinador el informe o revisión solicitado sin nuevas delegaciones. Si te faltan herramientas o permisos, comunica el bloqueo.
 
 En lectura secuencial o de una sola fuente, el principal aplica las mismas reglas de evidencia en su contexto compartido. Para consultas directas resuelve fuentes y guardado mediante el [contrato compartido](../necesito-saber/references/proyecto.md). El principal conserva el informe documental según su propio guardado, aunque no se guarde una síntesis de la consulta. Si falta preparación, sugiere `/setup` sin abrir la entrevista y conserva los hallazgos independientes comprobados.
 
 Recibe `PREGUNTA`, `LOCAL_DOCUMENT_ROOTS` y/o `BOARD` (`url` HTTPS del proyecto, repositorio o tablero; `proveedor` identifica el sistema cuando sea necesario para seleccionar el conector). Puede recibir `CONTEXTO`, `ALCANCE_ADICIONAL` (épica, componente, entrega o documentos), identificadores y alcance del proyecto, y `FECHA_DE_CORTE` para consultas históricas. Usa solo raíces y proyectos confirmados; si no hay fuente, solicita una raíz local o URL del board y los datos de conexión imprescindibles. Si la ambigüedad cambia el corpus, pide el dato preciso antes de atribuir cobertura; si admite interpretaciones separables, investígalas por separado.
 
-## Investigación
+## Investigación inicial
 
 1. Descompón `PREGUNTA` en afirmaciones comprobables y términos del dominio; fija la fecha de corte si se indicó. **Termina cuando** sepas qué hechos y excepciones debes demostrar.
 2. Delimita raíces, proveedor, URL, proyecto e identificadores/alcance recibidos. Solicita el dato imprescindible que falte. **Termina cuando** cada fuente solicitada tenga alcance confirmado o una limitación explícita.
@@ -20,7 +20,7 @@ Recibe `PREGUNTA`, `LOCAL_DOCUMENT_ROOTS` y/o `BOARD` (`url` HTTPS del proyecto,
 4. Consulta [boards e issues](references/boards.md) y/o [archivos locales](references/documentos-locales.md), según las fuentes recibidas. Abre cada fuente decisiva y sigue la paginación relevante. **Termina cuando** hayas consultado las accesibles o registrado exactamente cuáles no pudiste abrir.
 5. Busca definiciones alternativas, excepciones, criterios de aceptación, ejemplos, cambios y contradicciones en todo el alcance; para una fecha de corte, reconstruye el estado histórico. **Termina cuando** las variantes capaces de cambiar la respuesta estén cotejadas o figuren como limitaciones.
 6. Aplica la autoridad indicada abajo y reconstruye la cronología de definiciones relacionadas, incluidos descartes que expliquen su evolución. **Termina cuando** cada conflicto tenga ambas evidencias y su autoridad aplicable, o conste por qué no puede decidirse.
-7. Redacta el informe y evalúa la suficiencia. **Termina cuando** cada afirmación material tenga cita original verificable y el solicitante reciba el informe con las fuentes consultadas.
+7. Redacta el informe completo compacto y evalúa la suficiencia. **Termina cuando** cada afirmación material tenga cita original verificable y la respuesta incluya condiciones, estado justificado y límites.
 
 ## Autoridad y suficiencia
 
@@ -36,60 +36,20 @@ Marca `SUFICIENTE` solo si se cumplen **todas**:
 - Declaras cobertura, paginación relevante y fuentes inaccesibles.
 - Hechos, interpretaciones, decisiones pendientes y límites están separados.
 
-En otro caso marca `INSUFICIENTE`: explica la evidencia concreta que falta, su efecto y la pregunta dirigida que permitiría obtenerla. Una fuente inaccesible no invalida automáticamente hallazgos independientes comprobados.
+En otro caso marca `INSUFICIENTE`: explica la evidencia concreta que falta y su efecto. Una fuente inaccesible no invalida automáticamente hallazgos independientes comprobados.
 
 ## Informe y entrega
 
-Cita la fuente **original**, con campo/sección/comentario para issues y página, encabezado, tabla o párrafo para documentos:
+Lee y aplica el [contrato compartido](../necesito-saber/references/proyecto.md): **Informe completo compacto** en el primer encargo y **Revisiones puntuales** en repreguntas. El principal aplica **Publicar desde el principal** y **Presentación al usuario** también en consultas directas.
+
+Incluye ámbito y cobertura real por fuente, paginación relevante, versiones, estados y fechas disponibles, también para una fecha de corte. Integra cronología y alternativas incompatibles donde sostengan hallazgos. Cita la fuente **original**, con campo/sección/comentario para issues y página, encabezado, tabla o párrafo para documentos:
 
 ```text
 [ISSUE: proyecto/ID | Estado | actualizado AAAA-MM-DD | URL | localizador]
 [DOC: ruta/archivo.ext | versión/fecha si consta | localizador]
 ```
 
-Indica los campos no disponibles. Una cita textual breve complementa el localizador. Usa este formato completo:
-
-```markdown
-# Investigación documental
-
-## Respuesta breve
-<intención documentada y alternativas incompatibles>
-
-## Estado de suficiencia
-**SUFICIENTE | INSUFICIENTE**
-<justificación>
-
-## Alcance y cobertura
-| Fuente | Ámbito revisado | Resultado | Limitaciones |
-|---|---|---|---|
-| Board (sistema/URL) | ... | ... | ... |
-| Documentos locales | ... | ... | ... |
-
-## Hallazgos
-| ID | Tipo | Origen | Afirmación | Estado/versión y fecha | Evidencia |
-|---|---|---|---|---|---|
-| D-01 | HECHO | Board / documento | ... | ... | [ISSUE: ...] / [DOC: ...] |
-
-## Evolución en el board
-<cronología, IDs, estados y cambios>
-
-## Contradicciones documentales
-<issues entre sí, documentos entre sí y board frente a documentos>
-
-## Interpretación
-<razonamiento entre D-xx y la respuesta; etiqueta INFERENCIA y NO DETERMINADO>
-
-## Incertidumbres y límites
-<datos no demostrados y efecto sobre la respuesta>
-
-## Preguntas de seguimiento
-<preguntas dirigidas si es INSUFICIENTE>
-
-## Fuentes consultadas
-<URLs y documentos revisados>
-```
-
-Indica «No aplica» para fuentes ausentes y «Ninguno/Ninguna» para apartados sin hallazgos. Devuelve siempre el informe completo en conversación. El agente principal puede conservarlo como `investigacion-documentacion.md` según los ajustes y mecanismos de guardado disponibles; comunica solo las rutas confirmadas por ese mecanismo. Conserva literalmente claves, títulos, estados, versiones y términos de dominio; responde en el idioma de la pregunta.
+Indica los campos no disponibles. Una cita textual breve complementa el localizador. Conserva literalmente claves, títulos, estados, versiones y términos de dominio; responde en el idioma de la pregunta.
 
 ## Límites operativos
 
