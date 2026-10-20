@@ -87,12 +87,12 @@ if (role === "control") {
     await writeFile(join(registry, `${record.id}.json`), JSON.stringify(record), { flag: "wx" })
     return { investigacion: record.id }
   })
-  register("publish_code_report", "Guarda el informe completo devuelto por el lector de código; respeta el flag de guardado y los especialistas permitidos.", {
+  register("publish_code_report", "El principal guarda el informe completo inicial o reconstruido tras cambios materiales; respeta el guardado de lee-codigo y los especialistas permitidos.", {
     investigacion: sessionID, contenido: text, fuentes: sources,
   }, async ({ investigacion, contenido, fuentes }) => publishSession({
     sessionID: investigacion, agent: "copilot", topic: "Código", files: { "investigacion.md": contenido }, sources: fuentes,
   }, await publication(investigacion)))
-  register("publish_documentation_report", "El principal guarda el informe completo devuelto por lee-docs aunque la consulta no se guarde; respeta especialistas y el guardado documental. Conserva las revisiones.", {
+  register("publish_documentation_report", "El principal guarda el informe documental completo inicial o reconstruido tras cambios materiales, sin sobrescribir; respeta especialistas y el guardado de lee-docs independientemente de la consulta.", {
     investigacion: sessionID, contenido: text, fuentes: sources,
   }, async ({ investigacion, contenido, fuentes }) => publishSession({
     sessionID: investigacion, agent: "copilot", topic: "Documentación", files: { "investigacion-documentacion.md": contenido }, sources: fuentes,

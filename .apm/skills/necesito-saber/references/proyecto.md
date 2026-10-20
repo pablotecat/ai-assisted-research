@@ -1,4 +1,4 @@
-# Ajustes y publicación del proyecto
+# Ajustes, informes y publicación del proyecto
 
 Contrato compartido por la preparación y las investigaciones. Léelo directamente; no abre ninguna entrevista.
 
@@ -33,9 +33,44 @@ Validación compartida:
 
 Configuración válida y acceso operativo se comprueban por separado: una ruta válida no demuestra existencia ni permisos; un conector registrado no demuestra autenticación, carga de herramientas ni acceso al proyecto.
 
+## Informe completo compacto
+
+Un informe completo compacto responde a la pregunta hasta donde permita la evidencia, con condiciones, citas para cada afirmación material, conflictos y límites. Su completitud se mide por cobertura y evidencia, no por longitud ni inventario de lo consultado. Este contrato rige ambos lectores, delegados o en el principal, desde el primer encargo:
+
+1. **Respuesta y suficiencia:** conclusión directa, condiciones y `SUFICIENTE`/`INSUFICIENTE` justificado según el lector.
+2. **Alcance verificado:** fuentes, referencia o fecha de corte efectivas y cobertura real.
+3. **Hallazgos con evidencia:** ID estable (`C-01` para código, `D-01` para documentación), tipo (`HECHO`, `INFERENCIA`, `NO DETERMINADO`), afirmación y localizador original verificable.
+4. **Conflictos y límites:** los que afecten a la respuesta o su confianza, con su efecto explícito.
+
+Integra recorrido, variantes y cronología donde sostengan hallazgos. Usa matrices en lugar de repetir reglas; abre secciones adicionales solo cuando aporten información necesaria y omite las vacías. Formula preguntas de seguimiento solo para una decisión o evidencia concreta que falte; un informe suficiente puede terminar sin ellas.
+
+Consolida fuentes y localizadores en referencias reutilizables: cada afirmación material debe resolverse hasta el original con las precisiones exigidas por su lector. Para una consulta concreta, **600–1.000 palabras por lector**, incluidas referencias, son una orientación, no un mínimo ni un límite: usa menos si basta y amplía para conservar excepciones, citas y cobertura. La brevedad no modifica los criterios de suficiencia.
+
+## Revisiones puntuales
+
+Repregunta solo si una duda puede cambiar la conclusión, una condición, una cita o la suficiencia; `maxRepreguntasEspecialistas` es un máximo. Reutiliza el contexto del lector cuando sea posible y envía IDs afectados, duda exacta y evidencia nueva pertinente. En contexto nuevo añade pregunta, fuentes y referencia/corte, alcance, hallazgos afectados y extractos necesarios, incluidas dependencias y conflictos; amplía solo lo imprescindible para que pueda resolver la duda.
+
+El lector investiga esa duda y devuelve una **revisión puntual**, no otro informe completo:
+
+```markdown
+# Revisión puntual
+- Hallazgos afectados: <IDs existentes; IDs nuevos solo para hallazgos nuevos>
+- Operación: ampliar | corregir | retirar | confirmar sin cambios
+- Resultado: <afirmación resultante e identificación de la sustituida o retirada>
+- Evidencia consultada: <fuente original y localizador>
+- Efecto en la respuesta y sus condiciones: ...
+- Suficiencia y límites actualizados: <estado justificado; indicar también si no cambian>
+```
+
+Si hace falta ampliar el alcance, identifica qué parte y por qué. El principal integra la revisión en la base y comprueba coherencia de respuesta, hallazgos, citas, condiciones y suficiencia. Conserva IDs existentes y el historial de retiradas, sin reutilizarlos:
+
+- **Sin cambio material:** registra la comprobación y su evidencia en el contraste; conserva el informe vigente sin publicar una copia idéntica.
+- **Cambio material:** materializa una nueva versión completa, conserva la anterior y enlázala desde la nueva entrega o síntesis.
+- **Integración incierta:** pide la precisión que falta; solicita un informe completo nuevo solo si el cambio exige rehacerlo.
+
 ## Publicar desde el principal
 
-Los lectores delegados devuelven contenido completo y fuentes, sin publicar. El principal aplica de forma independiente:
+Los lectores delegados devuelven el informe o revisión solicitado y sus fuentes, sin publicar. El principal aplica de forma independiente:
 
 | Informe | Condición |
 |---|---|
@@ -43,7 +78,9 @@ Los lectores delegados devuelven contenido completo y fuentes, sin publicar. El 
 | `investigacion-documentacion.md` | Documentación solicitada/permitida y guardado de `lee-docs` activo, aunque la consulta no se guarde. |
 | `resumen-ejecutivo.md`, `informe-detallado.md` | Guardado de `necesito-saber` activo. |
 
-Prefiere un publicador compatible con el archivo elegido y el tipo de informe. Abre una investigación si su interfaz lo requiere y conserva su identificador para lectores, revisiones y síntesis. Guarda cada informe completo recibido y las revisiones solicitadas. Si ya guardaste el documental por separado, omítelo al publicar la consulta. Enlaza desde el informe de consulta las entregas existentes; conserva el historial.
+Prefiere un publicador compatible con el archivo elegido y el tipo de informe. Abre una investigación si su interfaz lo requiere y conserva su identificador para lectores, revisiones y síntesis; usa únicamente identificadores devueltos. Publica informes iniciales y versiones materialmente distintas sin sobrescribir entregas previas. Usa los esquemas reales: si el publicador exige contenido completo, el principal lo reconstruye desde la base y las revisiones; una revisión diferencial no supone una API de parches. Si ya guardaste el documental por separado, omítelo al publicar la consulta. La síntesis conserva el contraste y enlaza los informes existentes en lugar de reproducirlos.
+
+Verifica rutas y relee el contenido completo publicado antes de anunciarlo, también con publicador. Reducir el intercambio entre agentes no elimina esta comprobación. Anuncia exclusivamente archivos confirmados y registra individualmente los pendientes.
 
 ### Escritura nativa
 
@@ -52,6 +89,19 @@ Si falta publicador compatible y hay escritura autorizada, el principal puede gu
 1. Resuelve `sesiones.carpetaRaiz` dentro de la carpeta anfitriona. Comprueba padres y destino: carpetas reales, sin enlaces que desvíen la salida. Si no puedes comprobarlo, entrega en conversación y registra el pendiente.
 2. Crea una carpeta nueva `AAAAMMDD-HHMM__tema` bajo esa raíz; si existe, elige un sufijo libre. Usa esa carpeta durante toda la investigación. Crea una subcarpeta nueva `entrega-01`, `entrega-02`, etc. por publicación, comprobando que no exista antes de escribir. No sobrescribas entregas previas.
 3. Escribe únicamente los informes habilitados con los nombres anteriores. Lee cada archivo guardado y contrasta el contenido completo antes de anunciar su ruta. Conserva contenido, fuentes, modo efectivo y enlaces a las entregas anteriores en el informe o índice de la investigación.
-4. Si una escritura falla, identifica exactamente los archivos confirmados y los pendientes; entrega todos los informes completos en conversación. No anuncies una entrega conjunta como completa si falta alguno de sus archivos.
+4. Si una escritura falla, identifica exactamente los archivos confirmados y los pendientes y aplica la presentación por informe indicada abajo. Anuncia una entrega conjunta como completa solo si todos sus archivos están confirmados.
 
 Esta vía no ofrece los controles de identidad, bloqueo, concurrencia ni atomicidad del runtime. Si dos coordinadores comparten carpeta, cada uno debe elegir una carpeta nueva y verificar sus destinos. Un fallo opcional de guardado no invalida hallazgos comprobados ni cambia por sí mismo `SUFICIENTE`/`INSUFICIENTE`.
+
+## Presentación al usuario
+
+El principal decide la presentación por informe, también con una fuente, en secuencial o en consultas directas a un lector:
+
+| Estado del informe | Entrega en conversación |
+|---|---|
+| Guardado y verificado | Respuesta directa, citas decisivas, conflictos/límites esenciales y enlace; el archivo contiene el informe completo. |
+| Guardado desactivado, no disponible o sin confirmación | Informe completo compacto de esa parte. |
+| Guardado parcial | Enlaces de los archivos confirmados y contenido completo de las partes pendientes, con estado individual. |
+| Petición expresa de informe completo en conversación | Inclúyelo aunque esté guardado. |
+
+La respuesta se sostiene por sí misma: conclusión, condiciones decisivas, discrepancias relevantes, modo efectivo, fuentes usadas y contextos aislados o compartidos. Con ambos lectores y todos los guardados confirmados, **250–500 palabras** son una orientación flexible, no un mínimo; ajusta a la pregunta y preferencias del usuario. El detalle completo queda en los archivos enlazados, sin anexos ni desplegables automáticos en conversación.

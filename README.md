@@ -75,11 +75,15 @@ El principal conserva de forma independiente:
 
 | Ajuste de guardado | Entregables |
 |---|---|
-| `lee-codigo` | `investigacion.md` completo y revisiones. |
+| `lee-codigo` | `investigacion.md` completo y versiones materialmente distintas. |
 | `lee-docs` | `investigacion-documentacion.md`, incluso con el guardado de la consulta desactivado. |
 | `necesito-saber` | `resumen-ejecutivo.md` e `informe-detallado.md`, enlazando las entregas de lectores existentes. |
 
-La salida predeterminada es `informes-investigacion/sesiones/`. Los publicadores `publish_code_report`, `publish_documentation_report` y `write_report_pair` devuelven solo rutas confirmadas. Este último mantiene el argumento documental opcional por compatibilidad; omítelo si ya se publicó aparte. Sin publicador compatible, el principal puede crear y releer entregas nuevas mediante escritura nativa; esa vía no ofrece el bloqueo, la identidad ni la atomicidad de la biblioteca. Si falla o no hay escritura, devuelve igualmente los informes completos en conversación.
+Los lectores producen informes completos compactos: respuesta y suficiencia, alcance, hallazgos con evidencia y conflictos/límites relevantes. Una repregunta devuelve una revisión puntual con IDs estables; el principal integra los cambios y conserva las versiones materialmente distintas. Una confirmación sin cambios queda registrada en el contraste, sin otra copia del informe. Los criterios de evidencia y suficiencia se mantienen.
+
+La salida predeterminada es `informes-investigacion/sesiones/`. Los publicadores `publish_code_report`, `publish_documentation_report` y `write_report_pair` reciben contenido completo y devuelven solo rutas confirmadas. Este último mantiene el argumento documental opcional por compatibilidad; omítelo si ya se publicó aparte. Sin publicador compatible, el principal puede crear y releer entregas nuevas mediante escritura nativa; esa vía no ofrece el bloqueo, la identidad ni la atomicidad de la biblioteca. En ambos casos comprueba rutas y relee el contenido completo antes de anunciarlo.
+
+Con guardado verificado, la conversación ofrece respuesta, condiciones decisivas, citas, límites y enlaces, sin reproducir automáticamente los informes. Por cada parte sin guardado confirmado, entrega su contenido completo compacto en conversación; también si el usuario lo pide expresamente. Esta política respeta los tres guardados independientes, incluso ante un fallo parcial, y se aplica con una fuente, en secuencial y en consultas directas a los lectores.
 
 ## Uso y actualización
 

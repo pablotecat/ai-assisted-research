@@ -55,7 +55,7 @@ export default (async ({ client, directory }) => {
         },
       }),
       publish_code_report: tool({
-        description: "El principal publica investigacion.md completo recibido del lector de código; respeta especialistas y el guardado de lee-codigo independientemente de la consulta. Solo devuelve rutas confirmadas.",
+        description: "El principal publica investigacion.md completo, inicial o reconstruido tras cambios materiales; respeta especialistas y el guardado de lee-codigo independientemente de la consulta. Solo devuelve rutas confirmadas.",
         args: {
           contenido: tool.schema.string().min(1),
           fuentes: tool.schema.array(tool.schema.string()).optional(),
@@ -67,7 +67,7 @@ export default (async ({ client, directory }) => {
         },
       }),
       publish_documentation_report: tool({
-        description: "El principal publica investigacion-documentacion.md completo; respeta especialistas y el guardado de lee-docs aunque la consulta no se guarde. Conserva revisiones sin sobrescribir.",
+        description: "El principal publica investigacion-documentacion.md completo, inicial o reconstruido tras cambios materiales, sin sobrescribir; respeta especialistas y el guardado de lee-docs independientemente de la consulta.",
         args: { contenido: tool.schema.string().min(1), fuentes: tool.schema.array(tool.schema.string()).optional() },
         async execute(args, context) {
           if (!isPrimaryAgent(context.agent)) throw new Error("Solo el agente principal puede publicar informes")

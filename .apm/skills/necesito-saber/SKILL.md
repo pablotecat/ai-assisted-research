@@ -9,7 +9,7 @@ Responde a una pregunta concreta sobre el comportamiento implementado y/o la int
 
 ## Preparar la consulta
 
-Recibe `PREGUNTA` y las fuentes del solicitante. Lee el [contrato de ajustes y publicación](references/proyecto.md) para resolver un único archivo con o sin runtime. Usa `proyecto.repositorio` como `WORKSPACE`, `referencia` como `REFERENCIA_SOLICITADA`, `carpetasDocumentales` como `LOCAL_DOCUMENT_ROOTS` y `board` como `BOARD`. Los valores explícitos del solicitante prevalecen. Confirma los datos imprescindibles que falten:
+Recibe `PREGUNTA` y las fuentes del solicitante. Lee el [contrato compartido](references/proyecto.md) para resolver un único archivo con o sin runtime y aplicar informes compactos, revisiones, publicación y presentación. Usa `proyecto.repositorio` como `WORKSPACE`, `referencia` como `REFERENCIA_SOLICITADA`, `carpetasDocumentales` como `LOCAL_DOCUMENT_ROOTS` y `board` como `BOARD`. Los valores explícitos del solicitante prevalecen. Confirma los datos imprescindibles que falten:
 
 - Código: ruta absoluta del workspace y referencia solicitada, si importa.
 - Documentación: una raíz local o URL HTTPS del proyecto, repositorio o tablero; identifica el sistema si hace falta para seleccionar el conector.
@@ -25,25 +25,18 @@ Guarda únicamente fuentes nuevas confirmadas en campos vacíos; otros cambios s
 
 ## Investigación y contraste
 
-1. Si existe un mecanismo de guardado habilitado, abre una investigación y conserva su identificador devuelto durante toda la consulta, incluidas repreguntas. Usa las operaciones y los esquemas realmente disponibles. El guardado opcional se detalla abajo.
-2. Ejecuta únicamente las fuentes solicitadas y permitidas en el modo elegido arriba. En paralelo lanza dos subagentes de lectura en el mismo turno: uno carga `lee-codigo` y otro `lee-docs`, en contextos separados. Envía la entrada indicada abajo e instruye explícitamente que cada lector cargue solo su skill, consulte sin escritura ni delegaciones anidadas y devuelva el informe completo con citas y fuentes. En secuencial o con una fuente, el principal carga las instrucciones del lector correspondiente y aplica sus mismos criterios en lectura. Si no hay herramienta de skills, lee el `SKILL.md` instalado y sus referencias relativas. **Termina cuando** existan los informes completos solicitados o conste por qué alguna fuente no pudo investigarse.
-3. Contrasta los hallazgos con citas verificables. Distingue comportamiento implementado, intención escrita, inferencias y conflictos. Repregunta de forma dirigida, hasta el límite configurado, si faltan evidencias que el lector pueda obtener. Incluye en cada repregunta las fuentes, el informe previo y la duda precisa, porque puede recibir un contexto nuevo. Con un solo lector, atribuye hallazgos únicamente a esa fuente. **Termina cuando** puedas responder con evidencias o explicar exactamente qué falta.
-4. Si hay guardado habilitado, conserva las entregas según las reglas siguientes. **Termina cuando** el mecanismo confirme el resultado o hayas registrado su fallo.
-5. Devuelve respuesta, informes completos y límites de cobertura en conversación, aunque el guardado esté desactivado o no esté disponible. Identifica siempre el modo efectivo, las fuentes participantes y si sus contextos fueron aislados o compartidos.
+1. Si el guardado está habilitado y su interfaz lo requiere, abre una investigación y conserva su identificador devuelto durante toda la consulta, incluidas repreguntas. Usa las operaciones y los esquemas realmente disponibles.
+2. Ejecuta únicamente las fuentes solicitadas y permitidas en el modo elegido arriba. En paralelo lanza dos subagentes de lectura en el mismo turno: uno carga `lee-codigo` y otro `lee-docs`, en contextos separados. Envía la entrada indicada abajo e instruye explícitamente que cada lector cargue solo su skill, consulte sin escritura ni delegaciones anidadas y entregue el **informe completo compacto** del contrato compartido desde el primer encargo. En secuencial o con una fuente, el principal carga las instrucciones del lector correspondiente y aplica sus mismos criterios en lectura. Si no hay herramienta de skills, lee el `SKILL.md` instalado y sus referencias relativas. **Termina cuando** existan los informes solicitados con evidencia y suficiencia justificada o conste por qué alguna fuente no pudo investigarse.
+3. Contrasta los hallazgos con citas verificables. Distingue comportamiento implementado, intención escrita, inferencias y conflictos. Aplica **Revisiones puntuales** del contrato para decidir y acotar repreguntas, reutilizar contexto e integrar sus devoluciones diferenciales. Con un solo lector, atribuye hallazgos únicamente a esa fuente. **Termina cuando** puedas responder con evidencias o explicar exactamente qué falta, con las revisiones integradas coherentemente.
+4. Aplica **Publicar desde el principal** del contrato, con los tres guardados independientes y versiones completas materializadas por el principal. **Termina cuando** cada entrega habilitada esté guardada y releída o conste su fallo o pendiente.
+5. Aplica **Presentación al usuario** por informe: respuesta autosuficiente con enlaces a archivos verificados y contenido completo solo de las partes sin guardado confirmado o por petición expresa. Identifica modo efectivo, fuentes participantes y contextos aislados o compartidos.
 
 ### Entrada de los lectores
 
+Incluye la pregunta y las condiciones que deben demostrar, con el contrato de informe completo compacto y las fuentes correspondientes:
+
 - `lee-codigo`: `PREGUNTA`, `WORKSPACE`, `REFERENCIA_SOLICITADA`, `ALCANCE` y `CONTEXTO` disponibles.
 - `lee-docs`: `PREGUNTA`, `LOCAL_DOCUMENT_ROOTS` y/o `BOARD`, contexto, alcance adicional, identificadores y `FECHA_DE_CORTE` disponibles.
-
-## Guardado opcional
-
-El agente principal gestiona ajustes y guardado; los lectores delegados devuelven informes sin publicar. Si el entorno ofrece mecanismos de guardado, respeta sus ajustes:
-
-- Conserva cada informe de código recibido, incluidas revisiones, como `investigacion.md` cuando el guardado de `lee-codigo` esté activo, independientemente del guardado de la consulta.
-- Conserva cada informe documental completo como `investigacion-documentacion.md` cuando el guardado de `lee-docs` esté activo, independientemente del de la consulta. Conserva el resumen ejecutivo y el informe detallado cuando el guardado de `necesito-saber` esté activo.
-- Entrega al mecanismo los informes completos y sus fuentes. Agrupa las entregas por investigación y numera las revisiones sin sobrescribir archivos previos. Usa únicamente identificadores devueltos por ese mecanismo.
-- Usa la escritura nativa descrita en la referencia común si no hay publicador compatible. Enlaza las entregas de lectores ya guardadas sin duplicarlas en la consulta. Comunica solo las rutas cuyo guardado esté confirmado; si falla, entrega igualmente los informes en conversación.
 
 ## Límites operativos
 

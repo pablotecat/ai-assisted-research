@@ -6,9 +6,9 @@ user-invocable: false
 
 # Lee código
 
-Investiga el **comportamiento implementado** de un workspace. Descubre símbolos y relaciones con Codegraph; valida los resultados y las citas mediante lectura directa, búsqueda textual y Git de consulta. Entrega la investigación completa, también cuando te invoque `necesito-saber`.
+Investiga el **comportamiento implementado** de un workspace. Descubre símbolos y relaciones con Codegraph; valida los resultados y las citas mediante lectura directa, búsqueda textual y Git de consulta.
 
-El agente principal gestiona ajustes y guardado. Como lector delegado, carga solo esta skill en un contexto independiente de `lee-docs`, consulta sin nuevas delegaciones y devuelve el informe completo al coordinador. En lectura secuencial o de una sola fuente, el principal aplica las mismas reglas de evidencia sin atribuir independencia de contexto. Si te faltan herramientas o permisos, comunica el bloqueo.
+El agente principal gestiona ajustes, guardado y presentación al usuario. Como lector delegado, carga solo esta skill en un contexto independiente de `lee-docs`, consulta sin nuevas delegaciones y devuelve al coordinador el informe o revisión solicitado. En lectura secuencial o de una sola fuente, el principal aplica las mismas reglas de evidencia sin atribuir independencia de contexto. Si te faltan herramientas o permisos, comunica el bloqueo.
 
 ## Entrada y alcance
 
@@ -22,7 +22,7 @@ Recibe:
 
 El workspace y su índice Codegraph deben estar preparados. En una consulta directa, el principal resuelve fuentes y guardado mediante el [contrato compartido](../necesito-saber/references/proyecto.md). Si falta el workspace, hay varios candidatos o no coincide con la referencia solicitada, solicita el dato preciso al solicitante/coordinador. Sugiere `/setup` cuando haga falta preparación, sin iniciarla ni modificar el entorno durante la investigación.
 
-## Investigación
+## Investigación inicial
 
 1. Reformula `PREGUNTA` como afirmaciones comprobables: entradas, resultados, condiciones y efectos. **Termina cuando** sepas qué hechos y excepciones debes demostrar.
 2. Valida workspace, referencia efectiva e índice con [Codegraph y Git](references/codegraph.md). Registra commit, rama y cambios locales si Git está disponible. **Termina cuando** el contenido analizado y el estado del índice estén identificados, o conste el dato preciso que falta.
@@ -31,7 +31,7 @@ El workspace y su índice Codegraph deben estar preparados. En una consulta dire
 5. Contrasta implementaciones alternativas, flags, configuración, permisos, errores y rutas asíncronas capaces de cambiar la respuesta. **Termina cuando** esas variantes estén cotejadas o figuren como limitaciones.
 6. Abre cada archivo decisivo, confirma el fragmento en su contexto y obtén líneas exactas. **Termina cuando** cada afirmación material tenga evidencia localizable en el contenido verificado.
 7. Lee los tests pertinentes como evidencia secundaria: sus expectativas no sustituyen el recorrido ejecutable. **Termina cuando** estén contrastadas y sus discrepancias registradas.
-8. Redacta el informe y evalúa la suficiencia indicada abajo. **Termina cuando** el solicitante tenga la investigación completa, su estado justificado y las fuentes consultadas.
+8. Redacta el informe completo compacto y evalúa la suficiencia indicada abajo. **Termina cuando** cada afirmación material tenga evidencia localizable y la respuesta incluya condiciones, estado justificado y límites.
 
 ## Autoridad y suficiencia
 
@@ -46,57 +46,15 @@ Marca `SUFICIENTE` solo si se cumplen **todas**:
 - Workspace, referencia efectiva y estado del índice están identificados.
 - Las inferencias y límites están separados de los hechos.
 
-En otro caso marca `INSUFICIENTE`, indica la evidencia concreta que falta y formula preguntas de seguimiento que permitan investigarla.
+En otro caso marca `INSUFICIENTE` e indica la evidencia concreta que falta y su efecto.
 
 ## Informe y entrega
 
-Cita como `ruta/archivo.ext:linea-inicial-linea-final` (`Simbolo`), con un rango estrecho y cada salto decisivo. Obtén las líneas mediante lectura directa si la herramienta no las ofrece. Usa este formato completo:
+Lee y aplica el [contrato compartido](../necesito-saber/references/proyecto.md): **Informe completo compacto** en el primer encargo y **Revisiones puntuales** en repreguntas. El principal aplica **Publicar desde el principal** y **Presentación al usuario** también en consultas directas.
 
-```markdown
-# Investigación de código
+Incluye workspace, referencia solicitada/efectiva, commit, cambios locales y estado del índice. Integra el recorrido ejecutable y las variantes en los hallazgos que sustentan. Cita como `ruta/archivo.ext:linea-inicial-linea-final` (`Simbolo`), con rangos estrechos para cada salto decisivo; obtén las líneas mediante lectura directa si la herramienta no las ofrece.
 
-## Respuesta breve
-<respuesta directa y sus condiciones>
-
-## Estado de suficiencia
-**SUFICIENTE | INSUFICIENTE**
-<justificación>
-
-## Alcance verificado
-| Campo | Valor |
-|---|---|
-| Workspace | ... |
-| Referencia solicitada | ... |
-| Referencia efectiva | ... |
-| Cambios locales | ... |
-| Índice Codegraph | ... |
-| Alcance revisado | ... |
-
-## Hallazgos
-| ID | Tipo | Afirmación | Evidencia |
-|---|---|---|---|
-| C-01 | HECHO | ... | `ruta:lineas` (`Simbolo`) |
-
-## Recorrido de implementación
-<secuencia y relaciones entre C-xx>
-
-## Condiciones y variantes
-<flags, configuración, permisos, errores o caminos alternativos>
-
-## Conflictos internos
-<implementaciones o tests discrepantes>
-
-## Incertidumbres y límites
-<hechos no demostrados y efecto sobre la respuesta>
-
-## Preguntas de seguimiento
-<preguntas dirigidas si es INSUFICIENTE>
-
-## Fuentes consultadas
-<archivos y referencias revisados>
-```
-
-Indica «Ninguno/Ninguna» en apartados sin hallazgos. Devuelve siempre el informe completo en conversación, incluso si no se guarda. Si el guardado está habilitado y disponible, el agente principal conserva el informe como `investigacion.md` y comunica solo las rutas confirmadas por el mecanismo de guardado. Responde en el idioma de la consulta y conserva literalmente símbolos, archivos, flags y valores.
+Responde en el idioma de la consulta y conserva literalmente símbolos, archivos, flags y valores.
 
 ## Límites operativos
 
