@@ -42,7 +42,9 @@
           "git blame *": "allow",
           "git grep *": "allow",
           "markitdown --version": "allow",
-          "markitdown \"*\"": "allow"
+          "markitdown \"*\"": "allow",
+          "python -X utf8 -m markitdown --version": "allow",
+          "python -X utf8 -m markitdown \"*\"": "allow"
         }
       }
     }

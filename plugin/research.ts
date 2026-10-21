@@ -116,7 +116,7 @@ export default (async ({ client, directory }) => {
       if (input.tool === "bash") {
         const command = output.args?.command
         const code = node.skill === "lee-codigo" && /^(?:codegraph (?:status|query|explore|context|node|callers|callees|files)\b|git (?:status|rev-parse|branch --show-current|log|show|diff|ls-tree|cat-file|blame|grep)\b)/.test(command)
-        const docs = node.skill === "lee-docs" && /^markitdown (?:--version|"[^"\r\n]+")$/.test(command)
+        const docs = node.skill === "lee-docs" && /^(?:python -X utf8 -m )?markitdown (?:--version|"[^"\r\n]+")$/.test(command)
         if (typeof command !== "string" || !(code || docs) || /[;|&><`$\r\n]|\s(?:--output(?:=|\s)|--exec(?:=|\s)|--git-dir(?:=|\s)|-o(?:\s|$)|-c\s)/i.test(command))
           throw new Error("Comando de shell no permitido para estas skills")
       }

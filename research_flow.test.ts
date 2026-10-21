@@ -163,6 +163,22 @@ test("explore distingue la skill cargada y conserva los permisos de cada lector"
   await assert.rejects(before({ tool: "bash", sessionID: "docs", callID: "f" }, { args: { command: "markitdown \"a.md\" -o otro.md" } }), /no permitido/)
   await before({ tool: "bash", sessionID: "docs", callID: "g" }, { args: { command: "markitdown \"a.md\"" } })
   await assert.rejects(before({ tool: "bash", sessionID: "code", callID: "code-convert" }, { args: { command: "markitdown \"a.md\"" } }), /no permitido/)
+  for (const command of ["markitdown --version", "python -X utf8 -m markitdown --version",
+    'python -X utf8 -m markitdown "C:\\documentación con espacios\\[WIP] año → revisión.docx"']) {
+    await before({ tool: "bash", sessionID: "docs", callID: "utf8" }, { args: { command } })
+    for (const sessionID of ["code", "plain", "failed"])
+      await assert.rejects(before({ tool: "bash", sessionID, callID: "utf8-denied" }, { args: { command } }), /no permitido/)
+  }
+  for (const command of [
+    'python -c "print(1)"', 'python -X utf8 -c "print(1)"', 'python -X utf8 -m otro "a.docx"',
+    'python script.py', 'python -m markitdown "a.docx"', 'python -X utf8 -m markitdown a.docx',
+    'python -X utf8 -m markitdown "a.docx" -o otro.md', 'python -X utf8 -m markitdown -o "otro.md"',
+    'python -X utf8 -m markitdown "a.docx" --output=otro.md',
+    'python -X utf8 -m markitdown "a.docx" > otro.md', 'python -X utf8 -m markitdown "a.docx" | more',
+    'python -X utf8 -m markitdown "a.docx"; echo hola', 'python -X utf8 -m markitdown "a.docx" && echo hola',
+    'python -X utf8 -m markitdown "$(echo hola).docx"', 'python -X utf8 -m markitdown "`echo hola`.docx"',
+    'python -X utf8 -m markitdown "a.docx"\necho hola',
+  ]) await assert.rejects(before({ tool: "bash", sessionID: "docs", callID: "conversion-denied" }, { args: { command } }), /no permitido/)
   const tools = hooks.tool!
   const context = { agent: "revisor", sessionID: "coord", messageID: "report" } as never
   assert.deepEqual(JSON.parse(await tools.research_settings.execute({ action: "read" }, context) as string).skills, (await readSettings(path)).skills)
@@ -207,10 +223,10 @@ test("explore distingue la skill cargada y conserva los permisos de cada lector"
 test("instalación real, migración y actualización conservan ajustes y archivos del anfitrión", { timeout: 120000 }, async () => {
   const dir = await mkdtemp(join(tmpdir(), "research-install-"))
   const configDir = join(dir, ".opencode")
-  const install = (host: string) => {
+  const install = (host: string, readerPermissions = false) => {
     const result = spawnSync(process.execPath, [join(source, "scripts", "setup-opencode.mjs")], {
       cwd: host, encoding: "utf8", timeout: 60000,
-      env: { ...process.env, npm_config_offline: "true", npm_config_audit: "false", npm_config_fund: "false" },
+      env: { ...process.env, RESEARCH_READER_PERMISSIONS: readerPermissions ? "1" : "", npm_config_offline: "true", npm_config_audit: "false", npm_config_fund: "false" },
     })
     assert.equal(result.status, 0, result.stdout + result.stderr + (result.error ?? ""))
   }
@@ -269,6 +285,17 @@ test("instalación real, migración y actualización conservan ajustes y archivo
     install(dir)
     assert.deepEqual(await readSettings(common), settings)
     await assert.rejects(lstat(path), { code: "ENOENT" })
+    install(dir, true)
+    const restricted = JSON.parse(await readFile(join(configDir, "opencode.json"), "utf8"))
+    const permissions = JSON.parse(await readFile(join(source, "opencode.json"), "utf8")).agent.explore.permission
+    assert.deepEqual(restricted.agent.explore.permission, permissions)
+    assert.equal(restricted.model, "openai/modelo-anfitrion")
+    assert.equal(permissions.bash["python -X utf8 -m markitdown --version"], "allow")
+    assert.equal(permissions.bash['python -X utf8 -m markitdown "*"'], "allow")
+    assert.deepEqual(Object.keys(permissions.bash).filter((key) => key.startsWith("python")),
+      ["python -X utf8 -m markitdown --version", 'python -X utf8 -m markitdown "*"'])
+    assert.equal(permissions.bash["*"], "deny")
+    assert.equal(await readFile(join(configDir, "plugin", "research.ts"), "utf8"), await readFile(join(source, "plugin", "research.ts"), "utf8"))
   } finally { await rm(dir, { recursive: true, force: true }) }
 })
 
