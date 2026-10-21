@@ -1,6 +1,6 @@
 ---
 name: lee-codigo
-description: Investiga el comportamiento implementado en un WORKSPACE mediante Codegraph y citas de código. Úsala para resolver consultas funcionales o técnicas sobre el repositorio, también al ser delegada por necesito-saber.
+description: Investiga el comportamiento implementado en un WORKSPACE mediante Codegraph y citas de código. Úsala para resolver consultas funcionales o técnicas sobre el repositorio, también al ser delegada por investiga.
 user-invocable: false
 ---
 

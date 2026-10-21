@@ -1,9 +1,9 @@
 ---
-name: necesito-saber
+name: investiga
 description: Coordina preguntas sobre código, documentación local y sistemas de seguimiento de trabajo. Usa esta skill para contrastar evidencias con lectores especializados.
 ---
 
-# Necesito saber
+# Investiga
 
 Responde a una pregunta concreta sobre el comportamiento implementado y/o la intención documentada. Tú actúas como coordinador de la consulta; el modo efectivo determina si los lectores tienen contextos aislados o comparten el tuyo.
 

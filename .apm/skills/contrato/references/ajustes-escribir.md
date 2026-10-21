@@ -10,7 +10,7 @@ Validación compartida:
 
 - `proyecto.repositorio`: vacío o ruta local absoluta. `referencia`: cadena. `carpetasDocumentales`: lista de rutas absolutas no vacías, conservando varias raíces.
 - `proyecto.board`: un único board, `url` vacía o HTTPS; `proveedor` es un identificador abierto opcional. Con proveedor no vacío se requiere URL; la URL y el conector pueden bastar para identificar el sistema. Sin credenciales en los ajustes.
-- `skills.necesito-saber`: `especialistasPermitidos` contiene `codigo`, `documentacion` o ambos, sin repeticiones; `maxRepreguntasEspecialistas` es entero no negativo; `modoLectura` opcional: `auto`, `paralelo`, `secuencial`. Ausente significa `auto`, sin reescritura.
+- `skills.investiga`: `especialistasPermitidos` contiene `codigo`, `documentacion` o ambos, sin repeticiones; `maxRepreguntasEspecialistas` es entero no negativo; `modoLectura` opcional: `auto`, `paralelo`, `secuencial`. Ausente significa `auto`, sin reescritura.
 - Las tres skills tienen `guardarEntregablesEnSesion` booleano e independiente.
 - `sesiones.carpetaRaiz`: ruta relativa dentro de la carpeta anfitriona, sin segmentos vacíos, `.` o `..`, ni unidad/ruta absoluta. Mantén los demás campos compatibles con el esquema del paquete; rechaza claves desconocidas y tipos inválidos antes de aplicar.
 

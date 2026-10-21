@@ -6,7 +6,7 @@ Los lectores delegados devuelven el informe o revisión solicitado y sus fuentes
 |---|---|
 | `investigacion.md` | Código solicitado/permitido y guardado de `lee-codigo` activo. |
 | `investigacion-documentacion.md` | Documentación solicitada/permitida y guardado de `lee-docs` activo, aunque la consulta no se guarde. |
-| `resumen-ejecutivo.md`, `informe-detallado.md` | Guardado de `necesito-saber` activo. |
+| `resumen-ejecutivo.md`, `informe-detallado.md` | Guardado de `investiga` activo. |
 
 Prefiere un publicador compatible con el archivo elegido y el tipo de informe. Abre una investigación si su interfaz lo requiere y conserva su identificador para lectores, revisiones y síntesis; usa únicamente identificadores devueltos. Publica informes iniciales y versiones materialmente distintas sin sobrescribir entregas previas. Usa los esquemas reales: si el publicador exige contenido completo, el coordinador lo reconstruye desde la base y las revisiones; una revisión diferencial no supone una API de parches. Si ya guardaste el documental por separado, omítelo al publicar la consulta. La síntesis conserva el contraste y enlaza los informes existentes en lugar de reproducirlos.
 
