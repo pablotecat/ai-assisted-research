@@ -6,7 +6,7 @@ user-invocable: false
 
 # Lee docs
 
-Investiga la **intención funcional documentada**. Devuelve a quien te invocó el informe o revisión solicitado. El guardado, la publicación y la presentación al usuario son responsabilidad de tu invocador, también cuando ejecute la consulta en tu lugar sin delegarla. Carga solo esta skill, consulta fuentes sin escribir y sin nuevas delegaciones; comunica el bloqueo si te faltan herramientas o permisos.
+Investiga la **intención funcional documentada**. Devuelve a quien te invocó el informe o revisión solicitado. Publica tu informe en cuanto lo termines con tu [publicador acotado](../contrato/references/publicacion.md) si está disponible y habilitado, y sobrescríbelo con la versión completa reconstruida cuando una revisión lo cambie materialmente; sin publicador disponible, el guardado es responsabilidad de tu invocador. La presentación al usuario es siempre responsabilidad de tu invocador, también cuando ejecute la consulta en tu lugar sin delegarla. Carga solo esta skill, consulta fuentes sin otra escritura que tu publicador acotado y sin nuevas delegaciones; comunica el bloqueo si te faltan herramientas o permisos.
 
 Cuando compartas contexto con quien te invocó, aplica las mismas reglas de evidencia sin atribuir independencia de contexto. Sin un coordinador que resuelva las fuentes, aplica el [resolver de ajustes](../contrato/references/ajustes-resolver.md); el informe documental se conserva según el guardado de esta skill, aunque no se guarde una síntesis de la consulta.
 

@@ -55,43 +55,40 @@ export default (async ({ client, directory }) => {
         },
       }),
       publish_code_report: tool({
-        description: "El principal publica investigacion.md completo, inicial o reconstruido tras cambios materiales; respeta especialistas y el guardado de lee-codigo independientemente de la consulta. Solo devuelve rutas confirmadas.",
+        description: "Publica investigacion.md completo, inicial o reconstruido tras cambios materiales: el lector de código que lo produce o el principal. Sobrescribe atómicamente el vigente; respeta especialistas y el guardado de lee-codigo. Solo devuelve rutas confirmadas.",
         args: {
           contenido: tool.schema.string().min(1),
           fuentes: tool.schema.array(tool.schema.string()).optional(),
         },
         async execute(args, context) {
-          if (!isPrimaryAgent(context.agent)) throw new Error("Solo el agente principal puede publicar informes")
+          if (!isPrimaryAgent(context.agent) && context.agent !== "explore") throw new Error("Publicación reservada al agente principal o al lector delegado")
           return JSON.stringify(await publishSession({ sessionID: context.sessionID, messageID: context.messageID,
             agent: context.agent, topic: "investigacion", files: { "investigacion.md": args.contenido }, sources: args.fuentes }, publication))
         },
       }),
       publish_documentation_report: tool({
-        description: "El principal publica investigacion-documentacion.md completo, inicial o reconstruido tras cambios materiales, sin sobrescribir; respeta especialistas y el guardado de lee-docs independientemente de la consulta.",
+        description: "Publica investigacion-documentacion.md completo, inicial o reconstruido tras cambios materiales: el lector de documentación que lo produce o el principal. Sobrescribe atómicamente el vigente; respeta especialistas y el guardado de lee-docs.",
         args: { contenido: tool.schema.string().min(1), fuentes: tool.schema.array(tool.schema.string()).optional() },
         async execute(args, context) {
-          if (!isPrimaryAgent(context.agent)) throw new Error("Solo el agente principal puede publicar informes")
+          if (!isPrimaryAgent(context.agent) && context.agent !== "explore") throw new Error("Publicación reservada al agente principal o al lector delegado")
           return JSON.stringify(await publishSession({ sessionID: context.sessionID, messageID: context.messageID,
             agent: context.agent, topic: "documentacion", files: { "investigacion-documentacion.md": args.contenido }, sources: args.fuentes }, publication))
         },
       }),
       write_report_pair: tool({
-        description: "El principal publica resumen e informe según el guardado de necesito-saber. Admite informe documental por compatibilidad y lo guarda según lee-docs, independientemente de la consulta; omítelo si ya se publicó aparte.",
+        description: "El principal publica resumen e informe según el guardado de investiga. Una entrega por pregunta; reescribir sustituye atómicamente la última.",
         args: {
           slug: tool.schema.string().describe("Tema breve de la consulta"),
           resumen_ejecutivo: tool.schema.string().min(1),
           informe_detallado: tool.schema.string().min(1),
-          investigacion_documentacion: tool.schema.string().min(1).optional(),
+          reescribir: tool.schema.boolean().optional().describe("Sustituye la última entrega de esta consulta en lugar de crear una nueva"),
           fuentes: tool.schema.array(tool.schema.string()).optional(),
         },
         async execute(args, context) {
           if (!isPrimaryAgent(context.agent)) throw new Error("Solo el agente principal puede publicar informes")
-          const settings = await readSettings(settingsPath)
           const files: Record<string, string> = { "resumen-ejecutivo.md": args.resumen_ejecutivo, "informe-detallado.md": args.informe_detallado }
-          if (args.investigacion_documentacion && settings.skills["lee-docs"].guardarEntregablesEnSesion && settings.skills["necesito-saber"].especialistasPermitidos.includes("documentacion"))
-            files["investigacion-documentacion.md"] = args.investigacion_documentacion
           return JSON.stringify(await publishSession({ sessionID: context.sessionID, messageID: context.messageID,
-            agent: context.agent, topic: args.slug, group: "consulta", sources: args.fuentes, files }, publication))
+            agent: context.agent, topic: args.slug, group: "consulta", reescribir: args.reescribir, sources: args.fuentes, files }, publication))
         },
       }),
     },
@@ -104,10 +101,14 @@ export default (async ({ client, directory }) => {
         const name = output.args?.name
         if (name !== "lee-codigo" && name !== "lee-docs") throw new Error("Skill no permitida para este lector")
         if (node.skill && node.skill !== name) throw new Error("Cada sesión explore carga una única skill lectora")
-        if (node.parentID && !(await readSettings(settingsPath)).skills["necesito-saber"].especialistasPermitidos.includes(name === "lee-codigo" ? "codigo" : "documentacion"))
-          throw new Error("Especialista deshabilitado en research-settings.json")
+      if (node.parentID && !(await readSettings(settingsPath)).skills["investiga"].especialistasPermitidos.includes(name === "lee-codigo" ? "codigo" : "documentacion"))
+        throw new Error("Especialista deshabilitado en research-settings.json")
       }
-      if (["edit", "write", "apply_patch", "publish_code_report", "publish_documentation_report", "write_report_pair"].includes(input.tool)) throw new Error("Escritura local restringida al agente principal")
+      if (["edit", "write", "apply_patch", "write_report_pair"].includes(input.tool)) throw new Error("Escritura local restringida al agente principal")
+      if (input.tool === "publish_code_report" || input.tool === "publish_documentation_report") {
+        const expected = input.tool === "publish_code_report" ? "lee-codigo" : "lee-docs"
+        if (node.skill !== expected) throw new Error("Publicador reservado al lector que cargó su skill")
+      }
       if (input.tool === "lsp" && node.skill !== "lee-codigo")
         throw new Error("Herramienta reservada al lector que cargó lee-codigo")
       if (["webfetch", "websearch"].includes(input.tool) && node.skill === "lee-codigo")

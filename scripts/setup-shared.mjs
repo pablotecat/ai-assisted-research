@@ -46,7 +46,7 @@ function validateSettings(value, defaults) {
   const { repositorio, carpetasDocumentales, board } = value.proyecto
   if ((repositorio && !isAbsolute(repositorio)) || carpetasDocumentales.some((p) => typeof p !== "string" || !p.trim() || !isAbsolute(p))) throw new Error("Rutas locales absolutas requeridas")
   if ((board.proveedor && !board.url) || (board.url && new URL(board.url).protocol !== "https:")) throw new Error("URL HTTPS del board requerida")
-  const coordinator = value.skills["necesito-saber"]
+  const coordinator = value.skills["investiga"]
   const readers = coordinator.especialistasPermitidos
   if (!readers.length || readers.length > 2 || new Set(readers).size !== readers.length || readers.some((v) => !["codigo", "documentacion"].includes(v))) throw new Error("Especialistas inválidos")
   if (!Number.isInteger(coordinator.maxRepreguntasEspecialistas) || coordinator.maxRepreguntasEspecialistas < 0 || (coordinator.modoLectura !== undefined && !["auto", "paralelo", "secuencial"].includes(coordinator.modoLectura))) throw new Error("Preferencias inválidas")
@@ -69,13 +69,15 @@ export async function context(native) {
   if (before === undefined && native === ".opencode") {
     const old = JSON.parse(await existing(join(host, native, "agent-settings.json")) ?? "{}")
     if (old.agentes) settings = { proyecto: { ...defaults.proyecto, ...old.proyecto }, skills: {
-      "necesito-saber": old.agentes.coordinador, "lee-codigo": old.agentes.codigo, "lee-docs": old.agentes.documentacion,
+      "investiga": old.agentes.coordinador, "lee-codigo": old.agentes.codigo, "lee-docs": old.agentes.documentacion,
     }, sesiones: old.sesiones }
   }
-  if (settings.skills?.pregunta && !settings.skills["necesito-saber"]) {
-    settings.skills["necesito-saber"] = settings.skills.pregunta
-    delete settings.skills.pregunta
-    before = undefined
+  for (const legacy of ["necesito-saber", "pregunta"]) {
+    if (settings.skills?.[legacy] && !settings.skills.investiga) {
+      settings.skills.investiga = settings.skills[legacy]
+      delete settings.skills[legacy]
+      before = undefined
+    }
   }
   validateSettings(settings, defaults)
   return { host, settingsPath, settingsText: before ?? stringify(settings) }

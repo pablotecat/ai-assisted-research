@@ -27,8 +27,10 @@ El lector investiga esa duda y devuelve una **revisión puntual**, no otro infor
 - Suficiencia y límites actualizados: <estado justificado; indicar también si no cambian>
 ```
 
+Si el cambio afecta a un informe ya publicado, el lector dueño reconstruye la versión completa y sobrescribe su entregable antes de devolver la revisión.
+
 Si hace falta ampliar el alcance, identifica qué parte y por qué. Quien coordina integra la revisión en la base y comprueba coherencia de respuesta, hallazgos, citas, condiciones y suficiencia. Conserva IDs existentes y el historial de retiradas, sin reutilizarlos:
 
 - **Sin cambio material:** registra la comprobación y su evidencia en el contraste; conserva el informe vigente sin publicar una copia idéntica.
-- **Cambio material:** materializa una nueva versión completa, conserva la anterior y enlázala desde la nueva entrega o síntesis.
+- **Cambio material:** la versión completa reconstruida se publica sobre el entregable vigente, sobrescribiéndolo; quien coordina comprueba la coherencia de lo publicado.
 - **Integración incierta:** pide la precisión que falta; solicita un informe completo nuevo solo si el cambio exige rehacerlo.

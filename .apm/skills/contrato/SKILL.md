@@ -12,5 +12,5 @@ Referencias compartidas por las skills de investigación. Cada skill consumidora
 - [Resolver la fuente de verdad de ajustes](references/ajustes-resolver.md)
 - [Leer y modificar ajustes](references/ajustes-escribir.md)
 - [Informe completo compacto y revisiones](references/informe.md)
-- [Publicar desde el coordinador](references/publicacion.md)
+- [Publicación de entregables](references/publicacion.md)
 - [Presentación al usuario](references/presentacion.md)
