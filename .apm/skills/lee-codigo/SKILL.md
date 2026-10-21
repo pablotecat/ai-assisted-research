@@ -8,7 +8,7 @@ user-invocable: false
 
 Investiga el **comportamiento implementado** de un workspace. Descubre símbolos y relaciones con Codegraph; valida los resultados y las citas mediante lectura directa, búsqueda textual y Git de consulta.
 
-Devuelve a quien te invocó el informe o revisión solicitado. Aplica **Quién publica** y **Sesión y destinos** de la [publicación de entregables](../contrato/references/publicacion.md); sin publicador compatible, el guardado corresponde a tu invocador. La presentación al usuario corresponde siempre a tu invocador. Carga solo esta skill, consulta sin nuevas delegaciones ni otra escritura que tu publicador acotado, y comunica el bloqueo si te faltan herramientas o permisos.
+Cuando trabajes delegado, devuelve al coordinador el informe o revisión solicitado; la presentación al usuario le corresponde a él. En una consulta directa, aplica la [presentación al usuario](../contrato/references/presentacion.md). Aplica **Quién publica** y **Sesión y destinos** de la [publicación de entregables](../contrato/references/publicacion.md); sin publicador compatible, el guardado corresponde a tu invocador. Carga solo esta skill, consulta sin nuevas delegaciones ni otra escritura que tu publicador acotado, y comunica el bloqueo si te faltan herramientas o permisos.
 
 ## Entrada y alcance
 

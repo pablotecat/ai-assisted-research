@@ -1,12 +1,11 @@
 # Presentación al usuario
 
-Quien coordina la consulta decide la presentación por informe, también con una fuente, en secuencial o al ejecutar directamente una consulta de un lector:
+En el chat responde únicamente a la pregunta actual con una respuesta directa y autosuficiente, independientemente del estado del guardado. Incluye solo las condiciones, citas decisivas, discrepancias y límites necesarios para entender la conclusión. En una ampliación, responde a la nueva duda; el detalle consolidado de toda la investigación queda en los documentos.
 
-| Estado del informe | Entrega en conversación |
-|---|---|
-| Guardado y verificado | Respuesta directa, citas decisivas, conflictos/límites esenciales y enlace; el archivo contiene el informe completo. |
-| Guardado desactivado, no disponible o sin confirmación | Informe completo compacto de esa parte. |
-| Guardado parcial | Enlaces de los archivos confirmados y contenido completo de las partes pendientes, con estado individual. |
-| Petición expresa de informe completo en conversación | Inclúyelo aunque esté guardado. |
+La extensión depende de la pregunta, no del número de informes. Reserva metodología, modo de lectura y contexto de los lectores para los informes, salvo que condicionen la respuesta.
 
-La respuesta se sostiene por sí misma: conclusión, condiciones decisivas, discrepancias relevantes, modo efectivo, fuentes usadas y contextos aislados o compartidos. Con ambos lectores y todos los guardados confirmados, **250–500 palabras** son una orientación flexible, no un mínimo; ajusta a la pregunta y preferencias del usuario. El detalle completo queda en los archivos enlazados, sin anexos ni desplegables automáticos en conversación.
+- Enlaza los archivos guardados y verificados como detalle adicional, sin transcribirlos ni añadir anexos o desplegables con su contenido.
+- Si falla un guardado solicitado o queda pendiente, indícalo en una nota breve y enlaza solo los archivos confirmados. Mantén la misma respuesta a la pregunta; el fallo no convierte el chat en sustituto de los documentos.
+- Incluye un informe completo en el chat solo por petición expresa del usuario.
+
+Esta política se aplica con una o ambas fuentes, en paralelo, en secuencial y en consultas directas a los lectores. Las devoluciones entre agentes conservan el informe o revisión solicitado para investigar, contrastar y publicar; son distintas de la respuesta visible al usuario.

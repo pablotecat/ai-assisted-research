@@ -425,6 +425,22 @@ test("las skills solo enlazan recursos existentes y explican las tools instalada
   await checkReferences(join(source, ".apm", "skills"))
 })
 
+test("la presentación responde a la pregunta sin volcar informes por el estado del guardado", async () => {
+  const skills = join(source, ".apm", "skills")
+  const presentation = await readFile(join(skills, "contrato", "references", "presentacion.md"), "utf8")
+  assert.match(presentation, /En el chat responde únicamente a la pregunta actual/)
+  assert.match(presentation, /independientemente del estado del guardado/)
+  assert.match(presentation, /solo por petición expresa del usuario/)
+  assert.match(presentation, /devoluciones entre agentes/)
+  assert.doesNotMatch(presentation, /250.?500|Informe completo compacto de esa parte|contenido completo de las partes pendientes/)
+  const coordinator = await readFile(join(skills, "investiga", "SKILL.md"), "utf8")
+  assert.doesNotMatch(coordinator, /contenido completo solo de las partes sin guardado confirmado/)
+  for (const name of ["lee-codigo", "lee-docs"]) {
+    const reader = await readFile(join(skills, name, "SKILL.md"), "utf8")
+    assert.match(reader, /\[presentación al usuario\]\(\.\.\/contrato\/references\/presentacion\.md\)/)
+  }
+})
+
 test("el contrato asigna al coordinador el índice portable y exige documentos consolidados", async () => {
   const references = join(source, ".apm", "skills", "contrato", "references")
   const publication = await readFile(join(references, "publicacion.md"), "utf8")

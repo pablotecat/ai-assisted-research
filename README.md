@@ -87,7 +87,7 @@ Los documentos reflejan las conclusiones vigentes de toda la investigación: int
 
 El coordinador mantiene `sesiones-investigacion/indice-sesiones.md` mediante herramientas nativas, independientemente del runtime: una fila por pregunta de investigación del usuario, con fecha, pregunta y enlace relativo a la carpeta. Las ampliaciones apuntan a la misma sesión, incluso si no exigen reescribir informes. Se registran al terminar la respuesta y solo si existe algún entregable confirmado; sin guardado se omiten carpetas y entradas vacías. El índice local conserva tema, fuentes y enlaces a los entregables. Si falla el índice global, los documentos guardados se conservan y se comunica el pendiente.
 
-Con guardado verificado, la conversación ofrece respuesta, condiciones decisivas, citas, límites y enlaces, sin reproducir automáticamente los informes. Por cada parte sin guardado confirmado, entrega su contenido completo compacto en conversación; también si el usuario lo pide expresamente. Esta política respeta los tres guardados independientes, incluso ante un fallo parcial, y se aplica con una fuente, en secuencial y en consultas directas a los lectores.
+El chat responde únicamente a la pregunta actual, con las condiciones, citas y límites necesarios y enlaces al detalle guardado y verificado. Los informes completos quedan en los archivos; solo se muestran en el chat por petición expresa. Un guardado desactivado, pendiente o fallido no provoca su transcripción: si falla un guardado solicitado, se añade una nota breve. Esta política se aplica con una o ambas fuentes, en cualquier modo de lectura y en consultas directas a los lectores; las devoluciones entre agentes conservan el informe o revisión solicitado.
 
 ## Uso y actualización
 

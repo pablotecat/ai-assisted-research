@@ -31,9 +31,9 @@ El runtime mantiene el `indice.md` local con tema, fuentes y enlaces a los entre
 
 Si falta publicador compatible y hay escritura autorizada, el coordinador puede guardar sin terminal, Node ni servicios auxiliares:
 
-1. Resuelve `sesiones.carpetaRaiz` dentro de la carpeta anfitriona. Comprueba padres y destino: carpetas reales, sin enlaces que desvíen la salida. Si no puedes comprobarlo, entrega en conversación y registra el pendiente.
+1. Resuelve `sesiones.carpetaRaiz` dentro de la carpeta anfitriona. Comprueba padres y destino: carpetas reales, sin enlaces que desvíen la salida. Si no puedes comprobarlo, registra el pendiente y aplica la [presentación al usuario](presentacion.md).
 2. Si hay algún informe que guardar, crea una carpeta nueva `AAAAMMDD-HHMM__tema` bajo esa raíz; si existe, elige un sufijo libre. Conserva su ruta para toda la investigación y aplica los destinos definidos arriba.
 3. Escribe únicamente los informes habilitados y mantén el `indice.md` local con tema, fuentes y enlaces a los archivos confirmados. Lee cada archivo escrito y contrasta el contenido completo antes de anunciar su ruta: esta vía no tiene la verificación interna del publicador.
-4. Si una escritura falla, identifica exactamente los archivos confirmados y los pendientes y aplica la presentación por informe indicada abajo. Anuncia una entrega conjunta como completa solo si todos sus archivos están confirmados.
+4. Si una escritura falla, identifica exactamente los archivos confirmados y los pendientes y aplica la [presentación al usuario](presentacion.md). Anuncia una entrega conjunta como completa solo si todos sus archivos están confirmados.
 
 Esta vía no ofrece los controles de identidad, bloqueo, concurrencia ni atomicidad del runtime. Si dos coordinadores comparten carpeta, cada uno debe elegir una carpeta nueva y verificar sus destinos. Un fallo opcional de guardado no invalida hallazgos comprobados ni cambia por sí mismo `SUFICIENTE`/`INSUFICIENTE`.
