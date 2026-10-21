@@ -6,9 +6,9 @@ user-invocable: false
 
 # Lee docs
 
-Investiga la **intención funcional documentada**. El agente principal gestiona ajustes, guardado y presentación al usuario; esta skill consulta fuentes y no publica archivos. Como lector delegado, carga solo esta skill y devuelve al coordinador el informe o revisión solicitado sin nuevas delegaciones. Si te faltan herramientas o permisos, comunica el bloqueo.
+Investiga la **intención funcional documentada**. Devuelve a quien te invocó el informe o revisión solicitado. El guardado, la publicación y la presentación al usuario son responsabilidad de tu invocador, también cuando ejecute la consulta en tu lugar sin delegarla. Carga solo esta skill, consulta fuentes sin escribir y sin nuevas delegaciones; comunica el bloqueo si te faltan herramientas o permisos.
 
-En lectura secuencial o de una sola fuente, el principal aplica las mismas reglas de evidencia en su contexto compartido. Para consultas directas resuelve fuentes y guardado mediante el [contrato compartido](../necesito-saber/references/proyecto.md). El principal conserva el informe documental según su propio guardado, aunque no se guarde una síntesis de la consulta. Si falta preparación, sugiere `/setup` sin abrir la entrevista y conserva los hallazgos independientes comprobados.
+Cuando compartas contexto con quien te invocó, aplica las mismas reglas de evidencia sin atribuir independencia de contexto. Sin un coordinador que resuelva las fuentes, aplica el [resolver de ajustes](../contrato/references/ajustes-resolver.md); el informe documental se conserva según el guardado de esta skill, aunque no se guarde una síntesis de la consulta.
 
 Recibe `PREGUNTA`, `LOCAL_DOCUMENT_ROOTS` y/o `BOARD` (`url` HTTPS del proyecto, repositorio o tablero; `proveedor` identifica el sistema cuando sea necesario para seleccionar el conector). Puede recibir `CONTEXTO`, `ALCANCE_ADICIONAL` (épica, componente, entrega o documentos), identificadores y alcance del proyecto, y `FECHA_DE_CORTE` para consultas históricas. Usa solo raíces y proyectos confirmados; si no hay fuente, solicita una raíz local o URL del board y los datos de conexión imprescindibles. Si la ambigüedad cambia el corpus, pide el dato preciso antes de atribuir cobertura; si admite interpretaciones separables, investígalas por separado.
 
@@ -40,7 +40,7 @@ En otro caso marca `INSUFICIENTE`: explica la evidencia concreta que falta y su 
 
 ## Informe y entrega
 
-Lee y aplica el [contrato compartido](../necesito-saber/references/proyecto.md): **Informe completo compacto** en el primer encargo y **Revisiones puntuales** en repreguntas. El principal aplica **Publicar desde el principal** y **Presentación al usuario** también en consultas directas.
+Lee y aplica el [contrato de informe](../contrato/references/informe.md): **Informe completo compacto** en el primer encargo y **Revisiones puntuales** en repreguntas.
 
 Incluye ámbito y cobertura real por fuente, paginación relevante, versiones, estados y fechas disponibles, también para una fecha de corte. Integra cronología y alternativas incompatibles donde sostengan hallazgos. Cita la fuente **original**, con campo/sección/comentario para issues y página, encabezado, tabla o párrafo para documentos:
 

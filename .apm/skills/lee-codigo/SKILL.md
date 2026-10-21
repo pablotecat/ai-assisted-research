@@ -8,7 +8,7 @@ user-invocable: false
 
 Investiga el **comportamiento implementado** de un workspace. Descubre símbolos y relaciones con Codegraph; valida los resultados y las citas mediante lectura directa, búsqueda textual y Git de consulta.
 
-El agente principal gestiona ajustes, guardado y presentación al usuario. Como lector delegado, carga solo esta skill en un contexto independiente de `lee-docs`, consulta sin nuevas delegaciones y devuelve al coordinador el informe o revisión solicitado. En lectura secuencial o de una sola fuente, el principal aplica las mismas reglas de evidencia sin atribuir independencia de contexto. Si te faltan herramientas o permisos, comunica el bloqueo.
+Devuelve a quien te invocó el informe o revisión solicitado. El guardado, la publicación y la presentación al usuario son responsabilidad de tu invocador, también cuando ejecute la consulta en tu lugar sin delegarla. Carga solo esta skill, consulta sin nuevas delegaciones y comunica el bloqueo si te faltan herramientas o permisos.
 
 ## Entrada y alcance
 
@@ -20,7 +20,7 @@ Recibe:
 - `ALCANCE`: módulo, servicio, flujo o restricciones conocidas, si existen.
 - `CONTEXTO`: ejemplos, identificadores o escenarios relevantes, si existen.
 
-El workspace y su índice Codegraph deben estar preparados. En una consulta directa, el principal resuelve fuentes y guardado mediante el [contrato compartido](../necesito-saber/references/proyecto.md). Si falta el workspace, hay varios candidatos o no coincide con la referencia solicitada, solicita el dato preciso al solicitante/coordinador. Sugiere `/setup` cuando haga falta preparación, sin iniciarla ni modificar el entorno durante la investigación.
+El workspace y su índice Codegraph deben estar preparados. Sin un coordinador que resuelva las fuentes, aplica el [resolver de ajustes](../contrato/references/ajustes-resolver.md). Si falta el workspace, hay varios candidatos o no coincide con la referencia solicitada, solicita el dato preciso a tu solicitante. No inicies preparación ni modifies el entorno durante la investigación.
 
 ## Investigación inicial
 
@@ -50,7 +50,7 @@ En otro caso marca `INSUFICIENTE` e indica la evidencia concreta que falta y su 
 
 ## Informe y entrega
 
-Lee y aplica el [contrato compartido](../necesito-saber/references/proyecto.md): **Informe completo compacto** en el primer encargo y **Revisiones puntuales** en repreguntas. El principal aplica **Publicar desde el principal** y **Presentación al usuario** también en consultas directas.
+Lee y aplica el [contrato de informe](../contrato/references/informe.md): **Informe completo compacto** en el primer encargo y **Revisiones puntuales** en repreguntas.
 
 Incluye workspace, referencia solicitada/efectiva, commit, cambios locales y estado del índice. Integra el recorrido ejecutable y las variantes en los hallazgos que sustentan. Cita como `ruta/archivo.ext:linea-inicial-linea-final` (`Simbolo`), con rangos estrechos para cada salto decisivo; obtén las líneas mediante lectura directa si la herramienta no las ofrece.
 
