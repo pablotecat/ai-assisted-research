@@ -87,26 +87,22 @@ if (role === "control") {
     await writeFile(join(registry, `${record.id}.json`), JSON.stringify(record), { flag: "wx" })
     return { investigacion: record.id }
   })
-  register("publish_code_report", "El principal guarda el informe completo inicial o reconstruido tras cambios materiales; respeta el guardado de lee-codigo y los especialistas permitidos.", {
+  register("publish_code_report", "Publica investigacion.md completo, inicial o reconstruido tras cambios materiales, sobrescribiendo atómicamente el vigente; respeta especialistas y el guardado de lee-codigo.", {
     investigacion: sessionID, contenido: text, fuentes: sources,
   }, async ({ investigacion, contenido, fuentes }) => publishSession({
     sessionID: investigacion, agent: "copilot", topic: "Código", files: { "investigacion.md": contenido }, sources: fuentes,
   }, await publication(investigacion)))
-  register("publish_documentation_report", "El principal guarda el informe documental completo inicial o reconstruido tras cambios materiales, sin sobrescribir; respeta especialistas y el guardado de lee-docs independientemente de la consulta.", {
+  register("publish_documentation_report", "Publica investigacion-documentacion.md completo, inicial o reconstruido tras cambios materiales, sobrescribiendo atómicamente el vigente; respeta especialistas y el guardado de lee-docs.", {
     investigacion: sessionID, contenido: text, fuentes: sources,
   }, async ({ investigacion, contenido, fuentes }) => publishSession({
     sessionID: investigacion, agent: "copilot", topic: "Documentación", files: { "investigacion-documentacion.md": contenido }, sources: fuentes,
   }, await publication(investigacion)))
-  register("write_report_pair", "El principal publica resumen e informe según necesito-saber; el documental opcional respeta lee-docs independientemente. Omite el documental si ya se publicó aparte. Devuelve solo rutas guardadas.", {
-    investigacion: sessionID, resumen_ejecutivo: text, informe_detallado: text,
-    investigacion_documentacion: text.optional(), fuentes: sources,
-  }, async ({ investigacion, resumen_ejecutivo, informe_detallado, investigacion_documentacion, fuentes }) => {
-    const settings = await readSettings(settingsPath)
-    const files: Record<string, string> = { "resumen-ejecutivo.md": resumen_ejecutivo, "informe-detallado.md": informe_detallado }
-    if (investigacion_documentacion && settings.skills["lee-docs"].guardarEntregablesEnSesion && settings.skills["necesito-saber"].especialistasPermitidos.includes("documentacion"))
-      files["investigacion-documentacion.md"] = investigacion_documentacion
-    return publishSession({ sessionID: investigacion, agent: "copilot", topic: "Consulta", group: "consulta", files, sources: fuentes }, await publication(investigacion))
-  })
+  register("write_report_pair", "El principal publica resumen e informe de la consulta según investiga; una entrega por pregunta y reescribir sustituye atómicamente la última. Devuelve solo rutas guardadas.", {
+    investigacion: sessionID, resumen_ejecutivo: text, informe_detallado: text, reescribir: z.boolean().optional(), fuentes: sources,
+  }, async ({ investigacion, resumen_ejecutivo, informe_detallado, reescribir, fuentes }) => publishSession({
+    sessionID: investigacion, agent: "copilot", topic: "Consulta", group: "consulta", reescribir,
+    files: { "resumen-ejecutivo.md": resumen_ejecutivo, "informe-detallado.md": informe_detallado }, sources: fuentes,
+  }, await publication(investigacion)))
 }
 
 function checkArguments(args: string[], options: Set<string>) {

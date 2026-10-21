@@ -20,7 +20,7 @@ try {
     assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`)
     const skills = join(host, ".agents", "skills")
     const names = await readdir(skills)
-    for (const name of ["setup", "necesito-saber", "lee-codigo", "lee-docs"]) assert.ok(names.includes(name), `${target}: ${name} (${names})`)
+    for (const name of ["setup", "investiga", "lee-codigo", "lee-docs"]) assert.ok(names.includes(name), `${target}: ${name} (${names})`)
     async function links(path) {
       for (const item of await readdir(path, { withFileTypes: true })) {
         const file = join(path, item.name)

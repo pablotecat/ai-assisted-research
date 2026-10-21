@@ -6,7 +6,7 @@
     "board": { "proveedor": "", "url": "" }
   },
   "skills": {
-    "necesito-saber": { "maxRepreguntasEspecialistas": 2, "especialistasPermitidos": ["codigo", "documentacion"], "modoLectura": "auto", "guardarEntregablesEnSesion": true },
+    "investiga": { "maxRepreguntasEspecialistas": 2, "especialistasPermitidos": ["codigo", "documentacion"], "modoLectura": "auto", "guardarEntregablesEnSesion": true },
     "lee-codigo": { "guardarEntregablesEnSesion": true },
     "lee-docs": { "guardarEntregablesEnSesion": true }
   },

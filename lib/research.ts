@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto"
-import { link, lstat, mkdir, readFile, realpath, rename, rm, writeFile } from "node:fs/promises"
+import { lstat, mkdir, readFile, realpath, rename, rm, writeFile } from "node:fs/promises"
 import { basename, isAbsolute, join, relative, resolve, sep } from "node:path"
 import { z } from "zod"
 export { resolveSettingsPath } from "./settings-path.mjs"
@@ -21,7 +21,7 @@ const saved = z.object({ guardarEntregablesEnSesion: z.boolean() }).strict()
 export const settingsSchema = z.object({
   proyecto: projectSchema,
   skills: z.object({
-    "necesito-saber": saved.extend({ maxRepreguntasEspecialistas: z.number().int().min(0), especialistasPermitidos: permitted, modoLectura: z.enum(["auto", "paralelo", "secuencial"]).optional() }),
+    "investiga": saved.extend({ maxRepreguntasEspecialistas: z.number().int().min(0), especialistasPermitidos: permitted, modoLectura: z.enum(["auto", "paralelo", "secuencial"]).optional() }),
     "lee-codigo": saved,
     "lee-docs": saved,
   }).strict(),
@@ -32,7 +32,7 @@ export type ResearchSettings = ReturnType<typeof settingsSchema.parse>
 export const settingsPatchSchema = z.object({
   proyecto: projectSchema.partial().extend({ board: z.object(board.shape).partial().strict().optional() }).strict().optional(),
   skills: z.object({
-    "necesito-saber": settingsSchema.shape.skills.shape["necesito-saber"].partial().optional(),
+    "investiga": settingsSchema.shape.skills.shape["investiga"].partial().optional(),
     "lee-codigo": saved.partial().optional(),
     "lee-docs": saved.partial().optional(),
   }).strict().optional(),
@@ -89,9 +89,10 @@ function roleOf(node: Identity): Role | undefined {
   if (node.primary) return "pregunta"
   return node.skill === "lee-codigo" ? "codigo" : node.skill === "lee-docs" ? "documentacion" : undefined
 }
-const labels: Record<Role, string> = { pregunta: "necesito-saber", codigo: "lee-codigo", documentacion: "lee-docs" }
+const labels: Record<Role, string> = { pregunta: "investiga", codigo: "lee-codigo", documentacion: "lee-docs" }
 type Entry = { parent?: string; agent: Role; folder: string }
-type State = { root: string; entries: Record<string, Entry>; deliveries: string[]; sources: string[] }
+type Evento = { fecha: string; ruta: string; rol: Role }
+type State = { root: string; entries: Record<string, Entry>; deliveries: string[]; sources: string[]; eventos: Evento[] }
 
 function slug(value: string) {
   return value.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
@@ -206,12 +207,13 @@ export type Publication = { guardado: false } | { guardado: true; rutas: Record<
 // El adaptador verificado de OpenCode asigna las carpetas; el modelo aporta solo contenido.
 export async function publishSession(input: {
   sessionID: string; messageID?: string; agent: string; topic: string;
-  files: Record<string, string>; group?: "consulta"; sources?: string[]
+  files: Record<string, string>; group?: "consulta"; reescribir?: boolean; sources?: string[]
 }, options: { get: Resolver; settingsPath: string }): Promise<Publication> {
   let names = Object.keys(input.files)
   if (!names.length || names.some((name) => !input.files[name]?.trim())) throw new Error("Entregables vacíos")
   names.forEach(safeName)
   if (input.group && input.group !== "consulta") throw new Error("Grupo no permitido")
+  if (input.reescribir && !input.group) throw new Error("reescribir solo aplica a una entrega de consulta")
   const nodes = await chain(input.sessionID, input.messageID, options.get)
   if (nodes.at(-1)!.agent !== input.agent) throw new Error("Autor de publicación diferente")
   const settings = await readSettings(options.settingsPath)
@@ -220,7 +222,7 @@ export async function publishSession(input: {
   for (const name of names) {
     const kind = kinds[name]
     if (!kind || (role !== "pregunta" && role !== kind)) throw new Error("Entregable no autorizado para el agente lector")
-    if (kind !== "pregunta" && !settings.skills["necesito-saber"].especialistasPermitidos.includes(kind)) throw new Error("Especialista deshabilitado")
+    if (kind !== "pregunta" && !settings.skills["investiga"].especialistasPermitidos.includes(kind)) throw new Error("Especialista deshabilitado")
   }
   names = names.filter((name) => settings.skills[labels[kinds[name]] as keyof ResearchSettings["skills"]].guardarEntregablesEnSesion)
   if (!names.length) return { guardado: false }
@@ -253,7 +255,7 @@ export async function publishSession(input: {
           rootFolder = `${rootName(nodes[0].created, nodes[0].title || input.topic)}-${String(n + 1).padStart(2, "0")}`
         }
       }
-      state = { root: rootFolder, entries: {}, deliveries: [], sources: [] }
+      state = { root: rootFolder, entries: {}, deliveries: [], sources: [], eventos: [] }
       await saveJson(stateFile, state)
     }
     if (basename(state.root) !== state.root || state.root === "." || state.root === "..") throw new Error("Raíz de sesión inválida")
@@ -271,17 +273,21 @@ export async function publishSession(input: {
     }
     const owner = join(sessionDir, state.entries[input.sessionID].folder)
     const relativeOwner = state.entries[input.sessionID].folder.replace(/\\/g, "/")
-    const groupNumber = state.deliveries.filter((d) => d.startsWith(`${relativeOwner}/${input.group}`)).length + 1
-    const target = input.group ? join(owner, `consulta${groupNumber === 1 ? "" : `-${String(groupNumber).padStart(2, "0")}`}`) : owner
+    const count = input.group ? state.deliveries.filter((d) => d.startsWith(`${relativeOwner}/${input.group}`)).length : 0
+    if (input.reescribir && !count) throw new Error("No hay una entrega previa que reescribir")
+    const suffix = (n: number) => (n <= 1 ? "" : `-${String(n).padStart(2, "0")}`)
+    const target = input.group ? join(owner, input.group + suffix(input.reescribir ? count : count + 1)) : owner
     const paths: Record<string, string> = {}
+    const created: string[] = []
     let staging: string | undefined
     let committed = false
     try {
-      if (input.group) {
+      if (input.group && !input.reescribir) {
         staging = join(owner, `.pendiente-${randomUUID()}`)
         await mkdir(staging)
         for (const name of names) {
           await writeFile(join(staging, name), input.files[name], { flag: "wx" })
+          if (await readFile(join(staging, name), "utf8") !== input.files[name]) throw new Error("El contenido guardado no coincide con el enviado")
           paths[name] = join(target, name)
         }
         try {
@@ -294,19 +300,28 @@ export async function publishSession(input: {
         committed = true
         staging = undefined
       } else {
+        if (input.group) await directory(target)
         for (const name of names) {
-          const version = String(state.deliveries.filter((d) => d.startsWith(`${relativeOwner}/`)).length + 1).padStart(2, "0")
-          const path = join(owner, `${version}-${name}`)
+          const path = input.group ? join(target, name) : join(owner, name)
+          const existed = await lstat(path).then(() => true, (error: NodeJS.ErrnoException) => {
+            if (error.code !== "ENOENT") throw error
+            return false
+          })
           const temp = join(stateDir, `entrega-${randomUUID()}.tmp`)
           try {
             await writeFile(temp, input.files[name], { flag: "wx" })
-            await link(temp, path)
+            if (await readFile(temp, "utf8") !== input.files[name]) throw new Error("El contenido guardado no coincide con el enviado")
+            await replaceFile(temp, path)
           } finally { await rm(temp, { force: true }) }
+          if (!existed) created.push(path)
           paths[name] = path
-          state.deliveries.push(`${relativeOwner}/${version}-${name}`)
         }
       }
-      if (input.group) state.deliveries.push(`${relativeOwner}/${basename(target)}`)
+      for (const name of names) {
+        const entrega = input.group ? `${relativeOwner}/${basename(target)}` : `${relativeOwner}/${name}`
+        if (!state.deliveries.includes(entrega)) state.deliveries.push(entrega)
+        state.eventos.push({ fecha: new Date().toISOString(), ruta: entrega, rol: role })
+      }
       for (const item of input.sources ?? []) {
         const text = item.replace(/[\r\n]+/g, " ").trim().slice(0, 300)
         if (text && !state.sources.includes(text)) state.sources.push(text)
@@ -329,7 +344,7 @@ export async function publishSession(input: {
     } catch (error) {
       if (staging) await rm(staging, { recursive: true, force: true })
       if (input.group && committed) await rm(target, { recursive: true, force: true })
-      if (!input.group) for (const path of Object.values(paths)) await rm(path, { force: true })
+      for (const path of created) await rm(path, { force: true })
       await saveJson(stateFile, previous)
       throw error
     }
