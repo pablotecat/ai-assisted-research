@@ -10,5 +10,5 @@
     "lee-codigo": { "guardarEntregablesEnSesion": true },
     "lee-docs": { "guardarEntregablesEnSesion": true }
   },
-  "sesiones": { "carpetaRaiz": "informes-investigacion/sesiones" }
+  "sesiones": { "carpetaRaiz": "sesiones-investigacion" }
 }

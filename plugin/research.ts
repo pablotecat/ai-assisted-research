@@ -1,6 +1,6 @@
 import { tool, type Plugin } from "@opencode-ai/plugin"
 import { join } from "node:path"
-import { configureSettings, projectSchema, publishSession, readSettings, resolveSettingsPath, saveMissingProject, settingsPatchSchema, type Identity, type ReaderSkill } from "../lib/research.ts"
+import { configureSettings, projectSchema, publishSession, readSettings, resolveSettingsPath, saveMissingProject, settingsPatchSchema, startResearch, type Identity, type ReaderSkill } from "../lib/research.ts"
 
 export default (async ({ client, directory }) => {
   const settingsPath = await resolveSettingsPath(directory, join(directory, ".opencode", "research-settings.json"), process.env.RESEARCH_SETTINGS_PATH)
@@ -54,8 +54,17 @@ export default (async ({ client, directory }) => {
           return JSON.stringify({ ...settings, archivo: settingsPath })
         },
       }),
+      start_research: tool({
+        description: "Solo principal: inicia otra investigación en esta conversación por petición explícita del usuario. Las ampliaciones conservan la investigación activa sin llamar de nuevo. La primera publicación puede abrirla automáticamente.",
+        args: { tema: tool.schema.string().trim().min(1) },
+        async execute(args, context) {
+          if (!isPrimaryAgent(context.agent)) throw new Error("Solo el agente principal puede iniciar otra investigación")
+          return JSON.stringify(await startResearch({ sessionID: context.sessionID, messageID: context.messageID,
+            agent: context.agent, topic: args.tema }, publication))
+        },
+      }),
       publish_code_report: tool({
-        description: "Publica investigacion.md completo, inicial o reconstruido tras cambios materiales: el lector de código que lo produce o el principal. Sobrescribe atómicamente el vigente; respeta especialistas y el guardado de lee-codigo. Solo devuelve rutas confirmadas.",
+        description: "Publica investigacion-codebase.md completo y consolidado en la raíz de la sesión: lector de código o principal. Integra ampliaciones conservando hallazgos válidos. Sobrescritura atómica; respeta especialistas y guardado de lee-codigo. Devuelve rutas confirmadas.",
         args: {
           contenido: tool.schema.string().min(1),
           fuentes: tool.schema.array(tool.schema.string()).optional(),
@@ -63,11 +72,11 @@ export default (async ({ client, directory }) => {
         async execute(args, context) {
           if (!isPrimaryAgent(context.agent) && context.agent !== "explore") throw new Error("Publicación reservada al agente principal o al lector delegado")
           return JSON.stringify(await publishSession({ sessionID: context.sessionID, messageID: context.messageID,
-            agent: context.agent, topic: "investigacion", files: { "investigacion.md": args.contenido }, sources: args.fuentes }, publication))
+            agent: context.agent, topic: "investigacion", files: { "investigacion-codebase.md": args.contenido }, sources: args.fuentes }, publication))
         },
       }),
       publish_documentation_report: tool({
-        description: "Publica investigacion-documentacion.md completo, inicial o reconstruido tras cambios materiales: el lector de documentación que lo produce o el principal. Sobrescribe atómicamente el vigente; respeta especialistas y el guardado de lee-docs.",
+        description: "Publica investigacion-documentacion.md completo y consolidado en la raíz de la sesión: lector documental o principal. Integra ampliaciones conservando hallazgos válidos. Sobrescritura atómica; respeta especialistas y guardado de lee-docs.",
         args: { contenido: tool.schema.string().min(1), fuentes: tool.schema.array(tool.schema.string()).optional() },
         async execute(args, context) {
           if (!isPrimaryAgent(context.agent) && context.agent !== "explore") throw new Error("Publicación reservada al agente principal o al lector delegado")
@@ -76,19 +85,18 @@ export default (async ({ client, directory }) => {
         },
       }),
       write_report_pair: tool({
-        description: "El principal publica resumen e informe según el guardado de investiga. Una entrega por pregunta; reescribir sustituye atómicamente la última.",
+        description: "El principal publica resumen-ejecutivo.md e informe-detallado.md completos y consolidados en la raíz de la sesión según el guardado de investiga. Las ampliaciones actualizan los mismos archivos; devuelve rutas confirmadas.",
         args: {
           slug: tool.schema.string().describe("Tema breve de la consulta"),
           resumen_ejecutivo: tool.schema.string().min(1),
           informe_detallado: tool.schema.string().min(1),
-          reescribir: tool.schema.boolean().optional().describe("Sustituye la última entrega de esta consulta en lugar de crear una nueva"),
           fuentes: tool.schema.array(tool.schema.string()).optional(),
         },
         async execute(args, context) {
           if (!isPrimaryAgent(context.agent)) throw new Error("Solo el agente principal puede publicar informes")
           const files: Record<string, string> = { "resumen-ejecutivo.md": args.resumen_ejecutivo, "informe-detallado.md": args.informe_detallado }
           return JSON.stringify(await publishSession({ sessionID: context.sessionID, messageID: context.messageID,
-            agent: context.agent, topic: args.slug, group: "consulta", reescribir: args.reescribir, sources: args.fuentes, files }, publication))
+            agent: context.agent, topic: args.slug, sources: args.fuentes, files }, publication))
         },
       }),
     },
@@ -104,7 +112,7 @@ export default (async ({ client, directory }) => {
       if (node.parentID && !(await readSettings(settingsPath)).skills["investiga"].especialistasPermitidos.includes(name === "lee-codigo" ? "codigo" : "documentacion"))
         throw new Error("Especialista deshabilitado en research-settings.json")
       }
-      if (["edit", "write", "apply_patch", "write_report_pair"].includes(input.tool)) throw new Error("Escritura local restringida al agente principal")
+      if (["edit", "write", "apply_patch", "write_report_pair", "start_research"].includes(input.tool)) throw new Error("Escritura local restringida al agente principal")
       if (input.tool === "publish_code_report" || input.tool === "publish_documentation_report") {
         const expected = input.tool === "publish_code_report" ? "lee-codigo" : "lee-docs"
         if (node.skill !== expected) throw new Error("Publicador reservado al lector que cargó su skill")

@@ -11,6 +11,12 @@ Integra recorrido, variantes y cronología donde sostengan hallazgos. Usa matric
 
 Consolida fuentes y localizadores en referencias reutilizables: cada afirmación material debe resolverse hasta el original con las precisiones exigidas por su lector. Para una consulta concreta, **600–1.000 palabras por lector**, incluidas referencias, son una orientación, no un mínimo ni un límite: usa menos si basta y amplía para conservar excepciones, citas y cobertura. La brevedad no modifica los criterios de suficiencia.
 
+## Documento consolidado de sesión
+
+Cada archivo refleja las conclusiones vigentes de toda la investigación. Integra las ampliaciones y puntualizaciones en sus apartados, conserva hallazgos anteriores válidos con sus citas y sustituye las afirmaciones corregidas. La estructura sigue el conocimiento investigado, en lugar de reproducir una transcripción o una sucesión de respuestas independientes.
+
+Antes de sustituir un archivo, recupera su versión vigente del contexto disponible o del archivo confirmado y reconstruye el contenido completo. Si falta una parte necesaria, identifica el pendiente de consolidación y conserva el archivo existente hasta poder integrarla. Una revisión diferencial es una devolución entre roles, no el contenido completo que se publica.
+
 ## Revisiones puntuales
 
 Repregunta solo si una duda puede cambiar la conclusión, una condición, una cita o la suficiencia; `maxRepreguntasEspecialistas` es un máximo. Reutiliza el contexto del lector cuando sea posible y envía IDs afectados, duda exacta y evidencia nueva pertinente. En contexto nuevo añade pregunta, fuentes y referencia/corte, alcance, hallazgos afectados y extractos necesarios, incluidas dependencias y conflictos; amplía solo lo imprescindible para que pueda resolver la duda.

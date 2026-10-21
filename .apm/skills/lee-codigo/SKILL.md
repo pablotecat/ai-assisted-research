@@ -8,7 +8,7 @@ user-invocable: false
 
 Investiga el **comportamiento implementado** de un workspace. Descubre símbolos y relaciones con Codegraph; valida los resultados y las citas mediante lectura directa, búsqueda textual y Git de consulta.
 
-Devuelve a quien te invocó el informe o revisión solicitado. Publica tu informe en cuanto lo termines con tu [publicador acotado](../contrato/references/publicacion.md) si está disponible y habilitado, y sobrescríbelo con la versión completa reconstruida cuando una revisión lo cambie materialmente; sin publicador disponible, el guardado es responsabilidad de tu invocador. La presentación al usuario es siempre responsabilidad de tu invocador, también cuando ejecute la consulta en tu lugar sin delegarla. Carga solo esta skill, consulta sin nuevas delegaciones ni otra escritura que tu publicador acotado, y comunica el bloqueo si te faltan herramientas o permisos.
+Devuelve a quien te invocó el informe o revisión solicitado. Aplica **Quién publica** y **Sesión y destinos** de la [publicación de entregables](../contrato/references/publicacion.md); sin publicador compatible, el guardado corresponde a tu invocador. La presentación al usuario corresponde siempre a tu invocador. Carga solo esta skill, consulta sin nuevas delegaciones ni otra escritura que tu publicador acotado, y comunica el bloqueo si te faltan herramientas o permisos.
 
 ## Entrada y alcance
 
@@ -50,7 +50,7 @@ En otro caso marca `INSUFICIENTE` e indica la evidencia concreta que falta y su 
 
 ## Informe y entrega
 
-Lee y aplica el [contrato de informe](../contrato/references/informe.md): **Informe completo compacto** en el primer encargo y **Revisiones puntuales** en repreguntas.
+Lee y aplica el [contrato de informe](../contrato/references/informe.md): **Informe completo compacto** en el primer encargo, **Revisiones puntuales** en repreguntas y **Documento consolidado de sesión** al publicar ampliaciones o correcciones.
 
 Incluye workspace, referencia solicitada/efectiva, commit, cambios locales y estado del índice. Integra el recorrido ejecutable y las variantes en los hallazgos que sustentan. Cita como `ruta/archivo.ext:linea-inicial-linea-final` (`Simbolo`), con rangos estrechos para cada salto decisivo; obtén las líneas mediante lectura directa si la herramienta no las ofrece.
 

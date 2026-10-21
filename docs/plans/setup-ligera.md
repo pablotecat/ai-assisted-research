@@ -109,7 +109,7 @@ Los lectores delegados mantienen su aislamiento cuando se use el modo paralelo. 
 
 | Entregable | Condición de guardado |
 |---|---|
-| `investigacion.md` de código | Lector de código solicitado/permitido y guardado de `lee-codigo` activo. |
+| `investigacion-codebase.md` de código | Lector de código solicitado/permitido y guardado de `lee-codigo` activo. |
 | `investigacion-documentacion.md` | Lector documental solicitado/permitido y guardado de `lee-docs` activo, aunque el guardado de la consulta esté desactivado. |
 | `resumen-ejecutivo.md` e `informe-detallado.md` | Guardado de `necesito-saber` activo. |
 

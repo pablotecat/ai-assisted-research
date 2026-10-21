@@ -29,7 +29,7 @@ La entrevista muestra los valores existentes y pregunta por decisiones, sin exig
 
 **Vía básica:** las skills utilizan herramientas nativas de lectura, búsqueda, consulta y escritura disponibles. No necesitan Node ni un servidor del paquete para leer documentación o guardar informes nativamente. Sin subagentes, `auto` ejecuta primero documentación y después código en el principal, declarando contexto compartido. Con una fuente, no exige subagentes.
 
-**Runtime opcional:** requiere Node.js ≥ 24 y npm. Aporta edición validada de ajustes y publicación con sobrescritura atómica, verificación interna del contenido, comprobaciones de ruta, bloqueo y entregas de consulta atómicas. El plugin nativo añade verificación de sesiones y restricciones de herramientas para los lectores; el MCP utiliza identificadores de investigación propios y respeta los permisos del anfitrión. El runtime no aporta por sí solo conectores de boards, lectura general de archivos ni orquestación de subagentes.
+**Runtime opcional:** requiere Node.js ≥ 24 y npm. Aporta edición validada de ajustes y publicación con sustitución atómica por archivo, restauración ante fallos, verificación interna del contenido, comprobaciones de ruta y bloqueo por sesión. El plugin nativo añade verificación de sesiones y restricciones de herramientas para los lectores; el MCP utiliza identificadores de investigación propios y respeta los permisos del anfitrión. El runtime no aporta por sí solo conectores de boards, lectura general de archivos ni orquestación de subagentes.
 
 Si eliges instalarlo desde la carpeta anfitriona, distinta del repositorio de desarrollo del paquete:
 
@@ -75,13 +75,17 @@ El principal conserva de forma independiente:
 
 | Ajuste de guardado | Entregables |
 |---|---|
-| `lee-codigo` | `investigacion.md`, publicado y sobrescrito por su lector. |
+| `lee-codigo` | `investigacion-codebase.md`, publicado y sobrescrito por su lector. |
 | `lee-docs` | `investigacion-documentacion.md`, publicado y sobrescrito por su lector, incluso con el guardado de la consulta desactivado. |
-| `investiga` | `resumen-ejecutivo.md` e `informe-detallado.md`, una entrega por pregunta, enlazando las entregas de lectores existentes. |
+| `investiga` | `resumen-ejecutivo.md` e `informe-detallado.md`, síntesis consolidada que enlaza los informes de lectores existentes. |
 
 Los lectores producen informes completos compactos: respuesta y suficiencia, alcance, hallazgos con evidencia y conflictos/límites relevantes. Cada lector delegado publica su informe en cuanto lo termina mediante su publicador acotado, limitado a su entregable y a su carpeta de sesión, sin herramientas de escritura genéricas. Una repregunta devuelve una revisión puntual con IDs estables; con cambio material, el lector dueño reconstruye la versión completa y sobrescribe su entregable. Una confirmación sin cambios queda registrada en el contraste, sin otra copia del informe.
 
-La salida predeterminada es `informes-investigacion/sesiones/`. Los publicadores `publish_code_report`, `publish_documentation_report` y `write_report_pair` reciben contenido completo, escriben en dos fases con verificación interna y devuelven solo rutas confirmadas; `write_report_pair` publica una entrega por pregunta y su opción `reescribir` sustituye atómicamente la última. Sin publicador compatible, el principal puede escribir y releer entregas nuevas mediante escritura nativa; esa vía no ofrece el bloqueo, la identidad ni la atomicidad de la biblioteca, y exige releer el contenido completo antes de anunciar cada ruta.
+La salida predeterminada es `sesiones-investigacion/`. Cada investigación ocupa una carpeta directamente bajo esa raíz; los informes y su `indice.md` local viven directamente en ella. La conversación conserva la misma carpeta, incluidas las ampliaciones, salvo petición explícita de iniciar otra investigación. Una conversación nueva empieza otra por defecto. `start_research` permite abrir otra investigación cuando la interfaz lo requiere o el usuario lo solicita; su identificador se reutiliza en las ampliaciones.
+
+Los documentos reflejan las conclusiones vigentes de toda la investigación: integran puntualizaciones, conservan hallazgos válidos con sus citas y sustituyen lo corregido. Los publicadores `publish_code_report`, `publish_documentation_report` y `write_report_pair` reciben el contenido completo consolidado, comprueban internamente la escritura y devuelven solo rutas confirmadas. Sin publicador compatible, el principal escribe nativamente y relee el contenido completo antes de anunciar cada ruta; esa vía no ofrece el bloqueo, la identidad ni la atomicidad de la biblioteca.
+
+El coordinador mantiene `sesiones-investigacion/indice-sesiones.md` mediante herramientas nativas, independientemente del runtime: una fila por pregunta de investigación del usuario, con fecha, pregunta y enlace relativo a la carpeta. Las ampliaciones apuntan a la misma sesión, incluso si no exigen reescribir informes. Se registran al terminar la respuesta y solo si existe algún entregable confirmado; sin guardado se omiten carpetas y entradas vacías. El índice local conserva tema, fuentes y enlaces a los entregables. Si falla el índice global, los documentos guardados se conservan y se comunica el pendiente.
 
 Con guardado verificado, la conversación ofrece respuesta, condiciones decisivas, citas, límites y enlaces, sin reproducir automáticamente los informes. Por cada parte sin guardado confirmado, entrega su contenido completo compacto en conversación; también si el usuario lo pide expresamente. Esta política respeta los tres guardados independientes, incluso ante un fallo parcial, y se aplica con una fuente, en secuencial y en consultas directas a los lectores.
 

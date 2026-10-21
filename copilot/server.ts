@@ -78,7 +78,7 @@ if (role === "control") {
       ? await configureSettings(changes, settingsPath) : await saveMissingProject(values, settingsPath)
     return { ...settings, archivo: settingsPath }
   })
-  register("start_research", "Abre una investigación y devuelve su identificador. Reutilízalo en todas las entregas y repreguntas de esta consulta.", {
+  register("start_research", "Abre una investigación y devuelve su identificador. Consérvalo durante toda la conversación, incluidas ampliaciones y repreguntas; abre otra solo por petición explícita del usuario.", {
     tema: text,
   }, async ({ tema }) => {
     await readSettings(settingsPath)
@@ -87,20 +87,20 @@ if (role === "control") {
     await writeFile(join(registry, `${record.id}.json`), JSON.stringify(record), { flag: "wx" })
     return { investigacion: record.id }
   })
-  register("publish_code_report", "Publica investigacion.md completo, inicial o reconstruido tras cambios materiales, sobrescribiendo atómicamente el vigente; respeta especialistas y el guardado de lee-codigo.", {
+  register("publish_code_report", "Publica investigacion-codebase.md completo y consolidado en la raíz de la sesión. Integra ampliaciones conservando hallazgos válidos; sobrescritura atómica, especialistas y guardado de lee-codigo.", {
     investigacion: sessionID, contenido: text, fuentes: sources,
   }, async ({ investigacion, contenido, fuentes }) => publishSession({
-    sessionID: investigacion, agent: "copilot", topic: "Código", files: { "investigacion.md": contenido }, sources: fuentes,
+    sessionID: investigacion, agent: "copilot", topic: "Código", files: { "investigacion-codebase.md": contenido }, sources: fuentes,
   }, await publication(investigacion)))
-  register("publish_documentation_report", "Publica investigacion-documentacion.md completo, inicial o reconstruido tras cambios materiales, sobrescribiendo atómicamente el vigente; respeta especialistas y el guardado de lee-docs.", {
+  register("publish_documentation_report", "Publica investigacion-documentacion.md completo y consolidado en la raíz de la sesión. Integra ampliaciones conservando hallazgos válidos; sobrescritura atómica, especialistas y guardado de lee-docs.", {
     investigacion: sessionID, contenido: text, fuentes: sources,
   }, async ({ investigacion, contenido, fuentes }) => publishSession({
     sessionID: investigacion, agent: "copilot", topic: "Documentación", files: { "investigacion-documentacion.md": contenido }, sources: fuentes,
   }, await publication(investigacion)))
-  register("write_report_pair", "El principal publica resumen e informe de la consulta según investiga; una entrega por pregunta y reescribir sustituye atómicamente la última. Devuelve solo rutas guardadas.", {
-    investigacion: sessionID, resumen_ejecutivo: text, informe_detallado: text, reescribir: z.boolean().optional(), fuentes: sources,
-  }, async ({ investigacion, resumen_ejecutivo, informe_detallado, reescribir, fuentes }) => publishSession({
-    sessionID: investigacion, agent: "copilot", topic: "Consulta", group: "consulta", reescribir,
+  register("write_report_pair", "El principal publica resumen e informe completos y consolidados en la raíz de la sesión según investiga. Las ampliaciones actualizan los mismos archivos. Devuelve solo rutas confirmadas.", {
+    investigacion: sessionID, resumen_ejecutivo: text, informe_detallado: text, fuentes: sources,
+  }, async ({ investigacion, resumen_ejecutivo, informe_detallado, fuentes }) => publishSession({
+    sessionID: investigacion, agent: "copilot", topic: "Consulta",
     files: { "resumen-ejecutivo.md": resumen_ejecutivo, "informe-detallado.md": informe_detallado }, sources: fuentes,
   }, await publication(investigacion)))
 }

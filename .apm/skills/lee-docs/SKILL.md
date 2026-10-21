@@ -6,7 +6,7 @@ user-invocable: false
 
 # Lee docs
 
-Investiga la **intención funcional documentada**. Devuelve a quien te invocó el informe o revisión solicitado. Publica tu informe en cuanto lo termines con tu [publicador acotado](../contrato/references/publicacion.md) si está disponible y habilitado, y sobrescríbelo con la versión completa reconstruida cuando una revisión lo cambie materialmente; sin publicador disponible, el guardado es responsabilidad de tu invocador. La presentación al usuario es siempre responsabilidad de tu invocador, también cuando ejecute la consulta en tu lugar sin delegarla. Carga solo esta skill, consulta fuentes sin otra escritura que tu publicador acotado y sin nuevas delegaciones; comunica el bloqueo si te faltan herramientas o permisos.
+Investiga la **intención funcional documentada**. Devuelve a quien te invocó el informe o revisión solicitado. Aplica **Quién publica** y **Sesión y destinos** de la [publicación de entregables](../contrato/references/publicacion.md); sin publicador compatible, el guardado corresponde a tu invocador. La presentación al usuario corresponde siempre a tu invocador. Carga solo esta skill, consulta fuentes sin otra escritura que tu publicador acotado y sin nuevas delegaciones; comunica el bloqueo si te faltan herramientas o permisos.
 
 Cuando compartas contexto con quien te invocó, aplica las mismas reglas de evidencia sin atribuir independencia de contexto. Sin un coordinador que resuelva las fuentes, aplica el [resolver de ajustes](../contrato/references/ajustes-resolver.md); el informe documental se conserva según el guardado de esta skill, aunque no se guarde una síntesis de la consulta.
 
@@ -40,7 +40,7 @@ En otro caso marca `INSUFICIENTE`: explica la evidencia concreta que falta y su 
 
 ## Informe y entrega
 
-Lee y aplica el [contrato de informe](../contrato/references/informe.md): **Informe completo compacto** en el primer encargo y **Revisiones puntuales** en repreguntas.
+Lee y aplica el [contrato de informe](../contrato/references/informe.md): **Informe completo compacto** en el primer encargo, **Revisiones puntuales** en repreguntas y **Documento consolidado de sesión** al publicar ampliaciones o correcciones.
 
 Incluye ámbito y cobertura real por fuente, paginación relevante, versiones, estados y fechas disponibles, también para una fecha de corte. Integra cronología y alternativas incompatibles donde sostengan hallazgos. Cita la fuente **original**, con campo/sección/comentario para issues y página, encabezado, tabla o párrafo para documentos:
 

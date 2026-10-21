@@ -1,61 +1,38 @@
 # Flujo de guardado de entregables
 
-Borrador de trabajo sobre el reparto de escritura entre roles de la investigación: quién escribe, qué escribe y cuándo. Falta decidir su ubicación y formato definitivos.
+El [contrato de publicación](../.apm/skills/contrato/references/publicacion.md) define los destinos y responsabilidades; el [contrato de informe](../.apm/skills/contrato/references/informe.md), la consolidación. Este recorrido muestra su aplicación conjunta.
 
-## Recorrido de una consulta
+## Organización de los documentos
 
-```
-Usuario ── pregunta ──► COORDINADOR (investiga)
-                          │
-                          │ 1. Resuelve ajustes y encarga la lectura
-                          │
-                          ├──► LECTOR lee-codigo (contexto aislado)
-                          │      investiga en solo lectura
-                          │      publica investigacion.md en cuanto termina
-                          │      tras repregunta con cambio material:
-                          │      reconstruye y sobrescribe su archivo
-                          │
-                          ├──► LECTOR lee-docs (contexto aislado)
-                          │      investiga en solo lectura
-                          │      publica investigacion-documentacion.md en cuanto termina
-                          │      sobrescribe igual que lee-codigo
-                          │
-                          │ 2. Contrasta los informes devueltos
-                          │    repregunta (revisión puntual) y reintegra
-                          │
-                          │ 3. Publica la síntesis de la pregunta:
-                          │    carpeta consulta/ con resumen-ejecutivo.md
-                          │    e informe-detallado.md
-                          │    (una carpeta por pregunta; reescribir
-                          │    sustituye atómicamente la última)
-                          │
-Usuario ◄── respuesta ── 4. Presentación con enlaces a rutas confirmadas;
-                          contenido completo en conversación solo por lo
-                          no guardado o si el usuario lo pide
+```text
+sesiones-investigacion/
+  indice-sesiones.md
+  <sesion>/
+    indice.md
+    investigacion-codebase.md
+    investigacion-documentacion.md
+    resumen-ejecutivo.md
+    informe-detallado.md
 ```
 
-## Quién escribe, qué y cuándo
+Solo se crean los informes cuyo guardado está habilitado. Los publicadores conservan su estado interno bajo `.control/`, en la raíz de salida, separado de los documentos de sesión.
 
-**Lector delegado (lee-codigo / lee-docs)**
+## Recorrido de una consulta y sus ampliaciones
 
-- Sin herramientas de escritura genéricas (`edit`, `write`, terminal, `task`): investigación estrictamente en lectura.
-- Único canal de escritura: su publicador acotado (`publish_code_report` / `publish_documentation_report`), que solo admite el entregable de su skill y solo escribe en su carpeta de sesión.
-- Cuándo: inmediatamente al terminar el informe, antes de devolverlo al coordinador. Tras una repregunta con cambio material, reconstruye la versión completa (base + revisión, ambos en su contexto) y sobrescribe el mismo archivo.
+1. El coordinador resuelve las fuentes y la investigación activa. En la misma conversación conserva carpeta e identificador; abre otra por petición explícita del usuario. Una conversación nueva comienza otra investigación por defecto.
+2. Cada lector investiga en solo lectura y publica su informe completo mediante su publicador acotado, si dispone de él. En contexto compartido o sin ese publicador, el coordinador realiza el guardado.
+3. El coordinador contrasta las evidencias e integra revisiones puntuales. Los cambios materiales se incorporan al documento consolidado de cada rol, con hallazgos, citas y límites coherentes.
+4. El coordinador publica la síntesis consolidada en `resumen-ejecutivo.md` e `informe-detallado.md`, enlazando los informes existentes. Las preguntas posteriores amplían los mismos documentos: se conserva lo válido y se sustituye lo corregido.
+5. El publicador mantiene el `indice.md` local con tema, fuentes y entregables vigentes; en escritura nativa lo mantiene el coordinador.
+6. Al cerrar la respuesta, el coordinador actualiza y verifica el [índice global](../.apm/skills/contrato/references/indice-sesiones.md) mediante herramientas nativas. Cada pregunta de investigación tiene fecha y enlace a una carpeta con algún entregable confirmado; las ampliaciones apuntan a la misma carpeta. Una pregunta ya cubierta se registra sin republicar documentos idénticos.
+7. La respuesta anuncia solo archivos confirmados y distingue pendientes por informe e índice. Un fallo del índice global conserva los documentos guardados. Sin guardado se entrega el contenido en conversación, sin carpetas ni entradas vacías.
 
-**Coordinador (investiga)**
+## Garantías de escritura
 
-- Publica los informes de lectura solo cuando ejerce el lector en su propio contexto (modo secuencial o una sola fuente) o cuando el lector delegado no disponía de publicador compatible.
-- Publica la síntesis de cada pregunta con `write_report_pair`: `resumen-ejecutivo.md` + `informe-detallado.md` en una carpeta `consulta` por pregunta; `reescribir: true` sustituye atómicamente la última entrega.
-- Sin publicador compatible pero con escritura autorizada: escritura nativa, releyendo el contenido completo de cada archivo antes de anunciar su ruta (no hay verificación interna).
+El runtime prepara y verifica el contenido, sustituye atómicamente cada archivo bajo bloqueo de sesión y restaura los anteriores si falla la publicación. Conserva un registro interno de eventos; cada entregable público tiene una única versión vigente. El par de síntesis se anuncia como completo solo tras confirmar ambos archivos.
 
-**Runtime (publishSession, invisible para el modelo)**
+La escritura nativa relee los archivos completos antes de confirmar sus rutas. No ofrece los controles de identidad, bloqueo ni atomicidad del runtime. La actualización del índice global pertenece siempre al coordinador y permanece utilizable sin runtime.
 
-- Escrituras atómicas: archivo temporal con verificación de contenido y renombrado en segunda fase.
-- Comprueba internamente el contenido guardado antes de confirmar cada ruta; el publicador solo devuelve rutas confirmadas, por lo que no hay que releer esos archivos.
-- Bloqueo por sesión, una carpeta por investigación, índice (`indice.md`) con las entregas vigentes y registro interno append-only de eventos (fecha, ruta, rol) en `state.json`.
-- No hay archivos de versiones: cada entregable existe una única vez y se sobrescribe; el historial vive en los eventos internos.
+## Pendiente de revisión: continuidad de lectores
 
-**Reglas transversales**
-
-- `guardarEntregablesEnSesion` de cada skill decide de forma independiente qué entregables se guardan; un fallo opcional de guardado no invalida los hallazgos.
-- Un lector delegado sin publicador devuelve el informe completo y el guardado pasa al coordinador; la skill no depende del entorno (portabilidad).
+Revisar la reutilización del contexto de los lectores entre preguntas del usuario y puntualizaciones del coordinador: capacidades reales del anfitrión, identificadores de continuación y contexto disponible. Este punto requiere análisis independiente; no se presupone que una ampliación deba crear un lector nuevo. El contrato de documentos consolidados se aplica con cualquiera de las vías de lectura disponibles.

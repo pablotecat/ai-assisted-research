@@ -90,7 +90,7 @@ function roleOf(node: Identity): Role | undefined {
   return node.skill === "lee-codigo" ? "codigo" : node.skill === "lee-docs" ? "documentacion" : undefined
 }
 const labels: Record<Role, string> = { pregunta: "investiga", codigo: "lee-codigo", documentacion: "lee-docs" }
-type Entry = { parent?: string; agent: Role; folder: string }
+type Entry = { parent?: string; agent: Role }
 type Evento = { fecha: string; ruta: string; rol: Role }
 type State = { root: string; entries: Record<string, Entry>; deliveries: string[]; sources: string[]; eventos: Evento[] }
 
@@ -163,21 +163,6 @@ async function locked<T>(path: string, fn: () => Promise<T>): Promise<T> {
   try { return await fn() } finally { await rm(path, { recursive: true, force: true }) }
 }
 
-function folderFor(state: State, nodes: Identity[], index: number) {
-  const node = nodes[index]
-  const existing = state.entries[node.id]
-  if (existing) {
-    if (existing.parent !== node.parentID || existing.agent !== roleOf(node)) throw new Error("Propietario de carpeta diferente")
-    return existing.folder
-  }
-  const parent = index ? state.entries[nodes[index - 1].id].folder : ""
-  const count = Object.values(state.entries).filter((entry) => entry.parent === node.parentID).length + 1
-  const label = `${String(count).padStart(2, "0")}-${labels[roleOf(node)!]}${index ? `__${slug(node.title)}` : ""}`
-  const folder = parent ? join(parent, label) : label
-  state.entries[node.id] = { parent: node.parentID, agent: roleOf(node)!, folder }
-  return folder
-}
-
 async function saveJson(path: string, value: unknown) {
   const temp = `${path}.${randomUUID()}.tmp`
   try {
@@ -204,21 +189,64 @@ async function replaceFile(source: string, destination: string) {
 
 export type Publication = { guardado: false } | { guardado: true; rutas: Record<string, string>; sesion: string }
 
+const researchSchema = z.object({ id: z.string().uuid(), title: nonEmpty, created: z.number().int().nonnegative() }).strict()
+type PublicationOptions = { get: Resolver; settingsPath: string }
+
+async function readControl(path: string) {
+  try {
+    const stat = await lstat(path)
+    if (!stat.isFile() || stat.isSymbolicLink()) throw new Error("Archivo de control no seguro")
+    return JSON.parse(await readFile(path, "utf8"))
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
+  }
+}
+
+async function sessionControl(node: Identity, settings: ResearchSettings) {
+  const root = resolve(node.directory, settings.sesiones.carpetaRaiz)
+  await checkExistingAncestors(root)
+  await mkdir(root, { recursive: true })
+  await directory(root)
+  if ((await realpath(root)).toLowerCase() !== root.toLowerCase()) throw new Error("Ruta de sesiones enlazada fuera de la ubicación prevista")
+  const control = join(root, ".control")
+  await mkdir(control, { recursive: true })
+  await directory(control)
+  const id = createHash("sha256").update(node.directory + "\0" + node.id).digest("hex")
+  const stateDir = join(control, id)
+  await mkdir(stateDir, { recursive: true })
+  await directory(stateDir)
+  return { root, stateDir }
+}
+
+export async function startResearch(input: {
+  sessionID: string; messageID?: string; agent: string; topic: string
+}, options: PublicationOptions) {
+  const nodes = await chain(input.sessionID, input.messageID, options.get)
+  if (nodes.length !== 1 || !nodes[0].primary || nodes[0].agent !== input.agent) throw new Error("Solo el agente principal puede iniciar otra investigación")
+  const settings = await readSettings(options.settingsPath)
+  if (!Object.values(settings.skills).some((skill) => skill.guardarEntregablesEnSesion)) return { guardado: false as const }
+  const record = researchSchema.parse({ id: randomUUID(), title: input.topic, created: Date.now() })
+  const { stateDir } = await sessionControl(nodes[0], settings)
+  return locked(join(stateDir, ".lock"), async () => {
+    await readControl(join(stateDir, "active.json"))
+    await saveJson(join(stateDir, "active.json"), record)
+    return { investigacion: record.id }
+  })
+}
+
 // El adaptador verificado de OpenCode asigna las carpetas; el modelo aporta solo contenido.
 export async function publishSession(input: {
   sessionID: string; messageID?: string; agent: string; topic: string;
-  files: Record<string, string>; group?: "consulta"; reescribir?: boolean; sources?: string[]
-}, options: { get: Resolver; settingsPath: string }): Promise<Publication> {
+  files: Record<string, string>; sources?: string[]
+}, options: PublicationOptions): Promise<Publication> {
   let names = Object.keys(input.files)
   if (!names.length || names.some((name) => !input.files[name]?.trim())) throw new Error("Entregables vacíos")
   names.forEach(safeName)
-  if (input.group && input.group !== "consulta") throw new Error("Grupo no permitido")
-  if (input.reescribir && !input.group) throw new Error("reescribir solo aplica a una entrega de consulta")
   const nodes = await chain(input.sessionID, input.messageID, options.get)
   if (nodes.at(-1)!.agent !== input.agent) throw new Error("Autor de publicación diferente")
   const settings = await readSettings(options.settingsPath)
   const role = roleOf(nodes.at(-1)!)!
-  const kinds: Record<string, Role> = { "investigacion.md": "codigo", "investigacion-documentacion.md": "documentacion", "resumen-ejecutivo.md": "pregunta", "informe-detallado.md": "pregunta" }
+  const kinds: Record<string, Role> = { "investigacion-codebase.md": "codigo", "investigacion-documentacion.md": "documentacion", "resumen-ejecutivo.md": "pregunta", "informe-detallado.md": "pregunta" }
   for (const name of names) {
     const kind = kinds[name]
     if (!kind || (role !== "pregunta" && role !== kind)) throw new Error("Entregable no autorizado para el agente lector")
@@ -227,127 +255,85 @@ export async function publishSession(input: {
   names = names.filter((name) => settings.skills[labels[kinds[name]] as keyof ResearchSettings["skills"]].guardarEntregablesEnSesion)
   if (!names.length) return { guardado: false }
 
-  const root = resolve(nodes[0].directory, settings.sesiones.carpetaRaiz)
-  await checkExistingAncestors(root)
-  await mkdir(root, { recursive: true })
-  await directory(root)
-  if ((await realpath(root)).toLowerCase() !== resolve(root).toLowerCase()) throw new Error("Ruta de sesiones enlazada fuera de la ubicación prevista")
-  const control = join(root, ".control")
-  await mkdir(control, { recursive: true })
-  await directory(control)
-  const id = createHash("sha256").update(nodes[0].directory + "\0" + nodes[0].id).digest("hex")
-  const stateDir = join(control, id)
-  await mkdir(stateDir, { recursive: true })
-  await directory(stateDir)
+  const { root, stateDir } = await sessionControl(nodes[0], settings)
   return locked(join(stateDir, ".lock"), async () => {
-    const stateFile = join(stateDir, "state.json")
-    let state: State
-    try {
-      if ((await lstat(stateFile)).isSymbolicLink()) throw new Error("Estado de sesión enlazado")
-      state = JSON.parse(await readFile(stateFile, "utf8")) as State
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
-      let rootFolder = rootName(nodes[0].created, nodes[0].title || input.topic)
+    const active = await readControl(join(stateDir, "active.json"))
+    const research = active === undefined ? nodes[0] : researchSchema.parse(active)
+    const runDir = active === undefined ? stateDir : join(stateDir, research.id)
+    await mkdir(runDir, { recursive: true })
+    await directory(runDir)
+    const stateFile = join(runDir, "state.json")
+    let state = await readControl(stateFile) as State | undefined
+    if (!state) {
+      let rootFolder = rootName(research.created, research.title || input.topic)
       for (let n = 1; ; n++) {
         try { await mkdir(join(root, rootFolder)); break }
         catch (error) {
           if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error
-          rootFolder = `${rootName(nodes[0].created, nodes[0].title || input.topic)}-${String(n + 1).padStart(2, "0")}`
+          rootFolder = `${rootName(research.created, research.title || input.topic)}-${String(n + 1).padStart(2, "0")}`
         }
       }
       state = { root: rootFolder, entries: {}, deliveries: [], sources: [], eventos: [] }
-      await saveJson(stateFile, state)
     }
     if (basename(state.root) !== state.root || state.root === "." || state.root === "..") throw new Error("Raíz de sesión inválida")
     const sessionDir = join(root, state.root)
     within(root, sessionDir)
     await checkExistingAncestors(sessionDir)
     await directory(sessionDir)
-    const previous = structuredClone(state)
-    for (let i = 0; i < nodes.length; i++) {
-      const folder = folderFor(state, nodes, i)
-      within(sessionDir, join(sessionDir, folder))
-      await checkExistingAncestors(join(sessionDir, folder))
-      await mkdir(join(sessionDir, folder), { recursive: true })
-      await directory(join(sessionDir, folder))
+    for (const node of nodes) {
+      const existing = state.entries[node.id]
+      if (existing && (existing.parent !== node.parentID || existing.agent !== roleOf(node))) throw new Error("Autor de sesión diferente")
+      state.entries[node.id] = { parent: node.parentID, agent: roleOf(node)! }
     }
-    const owner = join(sessionDir, state.entries[input.sessionID].folder)
-    const relativeOwner = state.entries[input.sessionID].folder.replace(/\\/g, "/")
-    const count = input.group ? state.deliveries.filter((d) => d.startsWith(`${relativeOwner}/${input.group}`)).length : 0
-    if (input.reescribir && !count) throw new Error("No hay una entrega previa que reescribir")
-    const suffix = (n: number) => (n <= 1 ? "" : `-${String(n).padStart(2, "0")}`)
-    const target = input.group ? join(owner, input.group + suffix(input.reescribir ? count : count + 1)) : owner
-    const paths: Record<string, string> = {}
-    const created: string[] = []
-    let staging: string | undefined
-    let committed = false
+    for (const name of names) {
+      if (!state.deliveries.includes(name)) state.deliveries.push(name)
+      state.eventos.push({ fecha: new Date().toISOString(), ruta: name, rol: role })
+    }
+    for (const item of input.sources ?? []) {
+      const text = item.replace(/[\r\n]+/g, " ").trim().slice(0, 300)
+      if (text && !state.sources.includes(text)) state.sources.push(text)
+    }
+    const index = ["# Encargo", "", `**Tema:** ${(research.title || input.topic).replace(/[\r\n]+/g, " ")}`,
+      "**Estado:** entregables publicados", "", "## Fuentes consultadas", ...state.sources.map((s) => `- ${s}`),
+      "", "## Entregas", ...state.deliveries.map((d) => `- [${d}](./${d})`), ""].join("\n")
+    const files = { ...Object.fromEntries(names.map((name) => [name, input.files[name]])), "indice.md": index }
+    const staged: { path: string; temp: string; backup?: string; committed: boolean }[] = []
+    let recoveryFailed = false
     try {
-      if (input.group && !input.reescribir) {
-        staging = join(owner, `.pendiente-${randomUUID()}`)
-        await mkdir(staging)
-        for (const name of names) {
-          await writeFile(join(staging, name), input.files[name], { flag: "wx" })
-          if (await readFile(join(staging, name), "utf8") !== input.files[name]) throw new Error("El contenido guardado no coincide con el enviado")
-          paths[name] = join(target, name)
-        }
-        try {
-          await lstat(target)
-          throw new Error("La entrega ya existe")
-        } catch (error) {
-          if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
-        }
-        await rename(staging, target)
-        committed = true
-        staging = undefined
-      } else {
-        if (input.group) await directory(target)
-        for (const name of names) {
-          const path = input.group ? join(target, name) : join(owner, name)
-          const existed = await lstat(path).then(() => true, (error: NodeJS.ErrnoException) => {
-            if (error.code !== "ENOENT") throw error
-            return false
-          })
-          const temp = join(stateDir, `entrega-${randomUUID()}.tmp`)
-          try {
-            await writeFile(temp, input.files[name], { flag: "wx" })
-            if (await readFile(temp, "utf8") !== input.files[name]) throw new Error("El contenido guardado no coincide con el enviado")
-            await replaceFile(temp, path)
-          } finally { await rm(temp, { force: true }) }
-          if (!existed) created.push(path)
-          paths[name] = path
-        }
+      for (const [name, content] of Object.entries(files)) {
+        const path = join(sessionDir, name)
+        const existing = await lstat(path).catch((error: NodeJS.ErrnoException) => {
+          if (error.code !== "ENOENT") throw error
+        })
+        if (existing && (!existing.isFile() || existing.isSymbolicLink())) throw new Error("Destino no es un archivo regular")
+        const entry = { path, temp: join(runDir, `entrega-${randomUUID()}.tmp`), backup: existing ? join(runDir, `respaldo-${randomUUID()}.tmp`) : undefined, committed: false }
+        staged.push(entry)
+        if (entry.backup) await writeFile(entry.backup, await readFile(path), { flag: "wx" })
+        await writeFile(entry.temp, content, { flag: "wx" })
+        if (await readFile(entry.temp, "utf8") !== content) throw new Error("El contenido guardado no coincide con el enviado")
       }
-      for (const name of names) {
-        const entrega = input.group ? `${relativeOwner}/${basename(target)}` : `${relativeOwner}/${name}`
-        if (!state.deliveries.includes(entrega)) state.deliveries.push(entrega)
-        state.eventos.push({ fecha: new Date().toISOString(), ruta: entrega, rol: role })
+      for (const entry of staged) {
+        await replaceFile(entry.temp, entry.path)
+        entry.committed = true
       }
-      for (const item of input.sources ?? []) {
-        const text = item.replace(/[\r\n]+/g, " ").trim().slice(0, 300)
-        if (text && !state.sources.includes(text)) state.sources.push(text)
-      }
-      const index = ["# Encargo", "", `**Tema:** ${(nodes[0].title || input.topic).replace(/[\r\n]+/g, " ")}`,
-        "**Estado:** entregables publicados", "", "## Fuentes consultadas", ...state.sources.map((s) => `- ${s}`),
-        "", "## Entregas", ...state.deliveries.map((d) => `- [${d}](./${d})`), ""].join("\n")
       await saveJson(stateFile, state)
-      const indexPath = join(sessionDir, "indice.md")
-      try {
-        if ((await lstat(indexPath)).isSymbolicLink()) throw new Error("Índice enlazado fuera de la sesión")
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
-      }
-      const tempIndex = join(stateDir, `indice-${randomUUID()}.tmp`)
-      try {
-        await writeFile(tempIndex, index, { flag: "wx" })
-        await replaceFile(tempIndex, indexPath)
-      } finally { await rm(tempIndex, { force: true }) }
+      return { guardado: true, rutas: Object.fromEntries(names.map((name) => [name, join(sessionDir, name)])), sesion: sessionDir }
     } catch (error) {
-      if (staging) await rm(staging, { recursive: true, force: true })
-      if (input.group && committed) await rm(target, { recursive: true, force: true })
-      for (const path of created) await rm(path, { force: true })
-      await saveJson(stateFile, previous)
+      const failures: unknown[] = []
+      for (const entry of staged.filter((entry) => entry.committed).reverse()) {
+        try {
+          if (entry.backup) await replaceFile(entry.backup, entry.path)
+          else await rm(entry.path)
+        } catch (failure) { failures.push(failure) }
+      }
+      recoveryFailed = failures.length > 0
+      if (recoveryFailed) throw new AggregateError([error, ...failures], `Restauración pendiente; respaldos conservados en ${runDir}`)
       throw error
+    } finally {
+      for (const entry of staged) {
+        await rm(entry.temp, { force: true })
+        if (entry.backup && !recoveryFailed) await rm(entry.backup, { force: true })
+      }
     }
-    return { guardado: true, rutas: paths, sesion: sessionDir }
   })
 }

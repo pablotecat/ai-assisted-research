@@ -120,7 +120,7 @@ Con ambos lectores y todos los guardados confirmados, una respuesta orientativa 
 - Sustituye en los dos lectores «Devuelve siempre el informe completo en conversación» por una distinción explícita: **el lector delegado devuelve al coordinador el informe o revisión solicitado; el principal decide la presentación al usuario según este contrato**.
 - Modifica el paso final de `necesito-saber` que actualmente obliga a devolver informes completos en conversación aunque ya estén publicados.
 - Alinea el contrato de publicación y cualquier documentación activa que conserve la obligación anterior. Una instrucción nueva no debe convivir con otra que exija la duplicación.
-- Mantén los nombres y los guardados independientes de `investigacion.md`, `investigacion-documentacion.md`, `resumen-ejecutivo.md` e `informe-detallado.md`. La síntesis enlaza los informes existentes.
+- Mantén los nombres y los guardados independientes de `investigacion-codebase.md`, `investigacion-documentacion.md`, `resumen-ejecutivo.md` e `informe-detallado.md`. La síntesis enlaza los informes existentes.
 - Mantén la comprobación de rutas, la relectura del contenido publicado y el anuncio exclusivo de rutas confirmadas. La optimización de presentación no reduce las garantías de guardado.
 
 La política se aplica también con una fuente, en modo secuencial y en invocaciones directas de los lectores. No exige un runtime, un nuevo ajuste de usuario ni nuevos subagentes.
