@@ -1,8 +1,10 @@
 import { tool, type Plugin } from "@opencode-ai/plugin"
-import { join } from "node:path"
+import type { Plugin as OpenCodeV2 } from "@opencode/plugin"
+import { basename, isAbsolute, join, relative, resolve, sep } from "node:path"
+import { setupV2 } from "../lib/opencode-v2.ts"
 import { configureSettings, projectSchema, publishSession, readSettings, resolveSettingsPath, saveMissingProject, settingsPatchSchema, startResearch, type Identity, type ReaderSkill } from "../lib/research.ts"
 
-export default (async ({ client, directory }) => {
+export const legacyPlugin = (async ({ client, directory }) => {
   const settingsPath = await resolveSettingsPath(directory, join(directory, ".opencode", "research-settings.json"), process.env.RESEARCH_SETTINGS_PATH)
   const primaryAgents = new Set(["build", "plan"])
   const isPrimaryAgent = (name: string) => primaryAgents.has(name)
@@ -103,6 +105,20 @@ export default (async ({ client, directory }) => {
     "shell.env": async (_input, output) => { output.env.PYTHONIOENCODING = "utf-8" },
     "tool.execute.before": async (input, output) => {
       const node = await identity(input.sessionID)
+      if (node.primary && ["write", "edit", "apply_patch", "patch"].includes(input.tool)) {
+        const root = resolve(directory, (await readSettings(settingsPath)).sesiones.carpetaRaiz)
+        const args = output.args ?? {}
+        const paths = [args.filePath, args.path,
+          ...[...String(args.patchText ?? args.patch ?? "").matchAll(/^\*\*\* (?:Add File|Update File|Delete File|Move to): (.+)\r?$/gm)].map((match) => match[1])]
+        for (const path of paths.filter((path): path is string => typeof path === "string")) {
+          const target = resolve(directory, path.trim())
+          const name = process.platform === "win32" ? basename(target).toLowerCase() : basename(target)
+          const rel = relative(root, target)
+          if (["resumen-ejecutivo.md", "informe-detallado.md"].includes(name) && rel &&
+              rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel))
+            throw new Error("Los dos informes del coordinador se guardan exclusivamente con write_report_pair")
+        }
+      }
       if (node.agent !== "explore") return
       if (input.tool === "task") throw new Error("Los lectores no pueden realizar delegaciones anidadas")
       if (input.tool === "skill") {
@@ -131,3 +147,9 @@ export default (async ({ client, directory }) => {
     },
   }
 }) satisfies Plugin
+
+export default {
+  id: "ai-assisted-research",
+  server: legacyPlugin,
+  setup: (context) => setupV2(context, legacyPlugin),
+} satisfies OpenCodeV2.Plugin & { server: Plugin }

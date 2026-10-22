@@ -27,7 +27,7 @@ const available = JSON.parse(await readFile(join(source, "package.json"), "utf8"
 pkg.type = "module"
 pkg.dependencies = { ...Object.fromEntries(["@opencode-ai/plugin", "zod", "jsonc-parser"].map((name) => [name, available[name]])), ...pkg.dependencies }
 const files = new Map([[packagePath, stringify(pkg)]])
-for (const path of ["plugin/research.ts", "lib/research.ts", "lib/settings-path.mjs"]) files.set(join(runtime, path), await readFile(join(source, path), "utf8"))
+for (const path of ["plugin/research.ts", "lib/opencode-v2.ts", "lib/research.ts", "lib/settings-path.mjs"]) files.set(join(runtime, path), await readFile(join(source, path), "utf8"))
 await preflight(new Map([...files, [settingsPath, settingsText], [configPath, before]]))
 const legacy = []
 for (const path of ["plugin/agent-session.ts", "plugin/markitdown-utf8.ts"])

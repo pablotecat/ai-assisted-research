@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url"
 import test from "node:test"
 import { Client } from "@modelcontextprotocol/sdk/client/index.js"
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
-import plugin from "./plugin/research.ts"
+import runtime, { legacyPlugin as plugin } from "./plugin/research.ts"
 import { configureSettings, publishSession, readSettings, resolveSettingsPath, saveMissingProject, startResearch, type Identity } from "./lib/research.ts"
 
 const source = dirname(fileURLToPath(import.meta.url))
@@ -160,6 +160,24 @@ test("explore distingue la skill cargada y conserva los permisos de cada lector"
   const hooks = await plugin({ client, directory: dir } as never)
   await hooks.config!({ agent: { revisor: { mode: "primary" } } } as never)
   const before = hooks["tool.execute.before"]!
+  for (const name of ["resumen-ejecutivo.md", "informe-detallado.md"]) {
+    const report = join(dir, "sesiones-investigacion", "consulta", name)
+    for (const tool of ["write", "edit"])
+      for (const key of ["path", "filePath"])
+        await assert.rejects(before({ tool, sessionID: "coord", callID: "silent" }, { args: { [key]: report } }), /exclusivamente con write_report_pair/)
+    for (const tool of ["patch", "apply_patch"])
+      await assert.rejects(before({ tool, sessionID: "coord", callID: "silent-patch" }, { args: {
+        patchText: `*** Begin Patch\n*** Add File: ${report}\n+Informe\n*** End Patch`,
+      } }), /exclusivamente con write_report_pair/)
+    await assert.rejects(before({ tool: "apply_patch", sessionID: "coord", callID: "silent-move" }, { args: {
+      patch: `*** Begin Patch\n*** Update File: borrador.md\n*** Move to: ${report}\n*** End Patch`,
+    } }), /exclusivamente con write_report_pair/)
+    await before({ tool: "write", sessionID: "coord", callID: "outside" }, { args: { path: join(dir, "docs", name) } })
+  }
+  await before({ tool: "write", sessionID: "coord", callID: "reader-fallback" }, { args: {
+    path: join(dir, "sesiones-investigacion", "consulta", "investigacion-documentacion.md"),
+  } })
+  await before({ tool: "edit", sessionID: "coord", callID: "code-edit" }, { args: { path: join(dir, "app.ts") } })
   await assert.rejects(before({ tool: "read", sessionID: "mixed", callID: "mixed" }, { args: {} }), /incompatibles/)
   await assert.rejects(before({ tool: "edit", sessionID: "code", callID: "a" }, { args: {} }), /restringida/)
   await assert.rejects(before({ tool: "task", sessionID: "code", callID: "nested" }, { args: {} }), /anidadas/)
@@ -251,6 +269,66 @@ test("explore distingue la skill cargada y conserva los permisos de cada lector"
   assert.equal(env.env.PYTHONIOENCODING, "utf-8")
 })
 
+test("la entrada V2 publica la pareja sin devolver documentos y conserva los controles del runtime", async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), "research-v2-"))
+  t.after(() => rm(dir, { recursive: true, force: true }))
+  const settingsPath = await settingsFile(dir)
+  const tools = new Map<string, any>()
+  const hooks = new Map<string, any>()
+  const permissions: string[] = []
+  const assistant = (agent: string) => ({ id: "message", type: "assistant", agent, content: [
+    { type: "tool", name: "skill", state: { status: "completed", input: { id: "lee-codigo" } } },
+  ] })
+  const context = {
+    location: { directory: dir },
+    session: {
+      get: async ({ sessionID }: { sessionID: string }) => ({ id: sessionID, parentID: sessionID === "code" ? "coord" : undefined,
+        location: { directory: dir }, title: "Consulta V2", time: { created: Date.now() } }),
+      context: async ({ sessionID }: { sessionID: string }) => [assistant(sessionID === "code" ? "explore" : "personalizado")],
+      message: { get: async ({ sessionID }: { sessionID: string }) => assistant(sessionID === "code" ? "explore" : "personalizado") },
+    },
+    agent: { list: async () => ({ data: [{ id: "personalizado", mode: "primary" }] }) },
+    permission: { assert: async ({ action }: { action: string }) => { permissions.push(action) } },
+    tool: {
+      transform: async (register: (editor: unknown) => void) => register({ add: (tool: any) => tools.set(tool.name, tool) }),
+      hook: async (name: string, hook: unknown) => hooks.set(`tool.${name}`, hook),
+    },
+    shell: { hook: async (name: string, hook: unknown) => hooks.set(`shell.${name}`, hook) },
+  }
+  await runtime.setup(context as never)
+  assert.equal(runtime.id, "ai-assisted-research")
+  assert.deepEqual([...tools.keys()].sort(), ["publish_code_report", "publish_documentation_report", "research_settings", "start_research", "write_report_pair"])
+  const publisher = tools.get("write_report_pair")
+  assert.equal(publisher.options.codemode, false)
+  assert.equal(publisher.input.type, "object")
+  assert.deepEqual(publisher.input.required, ["slug", "resumen_ejecutivo", "informe_detallado"])
+  const invocation = { agent: "personalizado", sessionID: "coord", messageID: "message", id: "call" }
+  const input = { slug: "consulta", resumen_ejecutivo: "RESUMEN_INTERNO_único", informe_detallado: "DETALLE_INTERNO_único" }
+  const result = await publisher.execute(input, invocation)
+  assert.deepEqual(Object.keys(result), ["content"])
+  assert.doesNotMatch(result.content, /RESUMEN_INTERNO|DETALLE_INTERNO/)
+  const published = JSON.parse(result.content)
+  assert.equal(published.guardado, true)
+  assert.deepEqual(Object.keys(published).sort(), ["guardado", "rutas", "sesion"])
+  assert.equal(await readFile(published.rutas["resumen-ejecutivo.md"], "utf8"), input.resumen_ejecutivo)
+  assert.equal(await readFile(published.rutas["informe-detallado.md"], "utf8"), input.informe_detallado)
+  assert.deepEqual(permissions, ["write_report_pair"])
+  await assert.rejects(publisher.execute({ ...input, destino: "otro.md" }, invocation))
+  await assert.rejects(publisher.execute(input, { ...invocation, agent: "explore", sessionID: "code" }), /Solo el agente principal/)
+  const before = hooks.get("tool.execute.before")
+  await assert.rejects(before({ tool: "write", sessionID: "coord", id: "native", input: {
+    path: published.rutas["informe-detallado.md"], content: "No debe escribir por esta vía",
+  } }), /exclusivamente con write_report_pair/)
+  await assert.rejects(before({ tool: "shell", sessionID: "code", id: "shell", input: { command: "echo no" } }), /no permitido/)
+  await assert.rejects(before({ tool: "subagent", sessionID: "code", id: "nested", input: {} }), /anidadas/)
+  const code = await tools.get("publish_code_report").execute({ contenido: "Código" }, { ...invocation, agent: "explore", sessionID: "code" })
+  assert.equal(JSON.parse(code.content).sesion, published.sesion)
+  await configureSettings({ skills: { investiga: { guardarEntregablesEnSesion: false } } }, settingsPath)
+  assert.deepEqual(JSON.parse((await publisher.execute(input, invocation)).content), { guardado: false })
+  context.permission.assert = async () => { throw new Error("Publicador denegado") }
+  await assert.rejects(publisher.execute(input, invocation), /Publicador denegado/)
+})
+
 test("instalación real, migración y actualización conservan ajustes y archivos del anfitrión", { timeout: 120000 }, async () => {
   const dir = await mkdtemp(join(tmpdir(), "research-install-"))
   const configDir = join(dir, ".opencode")
@@ -269,6 +347,8 @@ test("instalación real, migración y actualización conservan ajustes y archivo
     assert.equal(fresh.subagent_depth, undefined)
     assert.equal(fresh.agent, undefined)
     assert.deepEqual(await readdir(join(configDir, "plugin")), ["research.ts"])
+    assert.equal(await readFile(join(configDir, "lib", "opencode-v2.ts"), "utf8"), await readFile(join(source, "lib", "opencode-v2.ts"), "utf8"))
+    assert.equal(JSON.parse(await readFile(join(configDir, "package.json"), "utf8")).dependencies["@opencode/plugin"], undefined)
 
     const settings = await readSettings(path)
     settings.proyecto.repositorio = dir
@@ -400,6 +480,44 @@ test("Copilot migra el nombre conservando ajustes y publicación de informes", {
   assert.deepEqual(await invoke("write_report_pair", { investigacion, resumen_ejecutivo: "Resumen", informe_detallado: "Informe" }), { guardado: false })
 })
 
+test("OpenCode V2 carga realmente el publicador instalado", { timeout: 180000 }, async (t) => {
+  const cli = (args: string[], cwd: string, env = process.env) => process.platform === "win32"
+    ? spawnSync("cmd.exe", ["/d", "/s", "/c", `opencode ${args.join(" ")}`], { cwd, env, encoding: "utf8", timeout: 90000 })
+    : spawnSync("opencode", args, { cwd, env, encoding: "utf8", timeout: 90000 })
+  const version = cli(["--version"], source)
+  if (version.status !== 0 || !/\bv?2\./.test(version.stdout)) return t.skip("Requiere la CLI OpenCode V2")
+  const dir = await mkdtemp(join(tmpdir(), "research-v2-install-"))
+  t.after(() => rm(dir, { recursive: true, force: true }))
+  const env = { ...process.env, RESEARCH_SETTINGS_PATH: "", npm_config_offline: "true",
+    npm_config_audit: "false", npm_config_fund: "false", XDG_CONFIG_HOME: join(dir, "config"),
+    XDG_DATA_HOME: join(dir, "data"), XDG_STATE_HOME: join(dir, "state"), XDG_CACHE_HOME: join(dir, "cache") }
+  const install = spawnSync(process.execPath, [join(source, "scripts", "setup-opencode.mjs")], {
+    cwd: dir, env, encoding: "utf8", timeout: 60000,
+  })
+  assert.equal(install.status, 0, install.stdout + install.stderr)
+  await writeFile(join(dir, ".opencode", "plugin", "zz-probe.ts"), `import { writeFile } from "node:fs/promises"
+  import { join } from "node:path"
+  export default {
+    id: "research-install-probe",
+    async setup(context) {
+      await context.session.hook("prompt", async () => {
+        const tools = await context.tool.list()
+        await writeFile(join(context.location.directory, "publicador-cargado.json"), JSON.stringify(tools.map((tool) => tool.id)))
+      })
+    },
+  }`)
+  // Una consulta de catálogo puede responder antes de que termine la carga.
+  // El modelo inexistente fuerza la preparación de una sesión sin hacer inferencia.
+  const loaded = cli(["run", "--standalone", "--print-logs", "--model", "research-test/missing", "--format", "json", "prueba"], dir, env)
+  const output = loaded.stdout + loaded.stderr
+  assert.equal(loaded.status, 1, output + (loaded.error ?? ""))
+  assert.doesNotMatch(output, /plugin.*(?:failed|error)|(?:failed|error).*plugin/i)
+  assert.doesNotMatch(output, /Skipping invalid tool registration/)
+  const registered = JSON.parse(await readFile(join(dir, "publicador-cargado.json"), "utf8"))
+  assert.ok(registered.includes("write_report_pair"), JSON.stringify(registered) + "\n" + output.split("\n").filter((line) => /WARN|ERROR|invalid|ai-assisted-research/i.test(line)).join("\n"))
+  assert.ok(registered.includes("publish_documentation_report"), JSON.stringify(registered))
+})
+
 test("las skills solo enlazan recursos existentes y explican las tools instaladas", async () => {
   for (const name of ["setup", "investiga", "lee-codigo", "lee-docs"]) {
     const dir = join(source, ".apm", "skills", name)
@@ -432,8 +550,14 @@ test("la presentación responde a la pregunta sin volcar informes por el estado 
   assert.match(presentation, /independientemente del estado del guardado/)
   assert.match(presentation, /solo por petición expresa del usuario/)
   assert.match(presentation, /devoluciones entre agentes/)
+  assert.match(presentation, /termina solo con la respuesta a la pregunta, sin anunciar archivos/)
   assert.doesNotMatch(presentation, /250.?500|Informe completo compacto de esa parte|contenido completo de las partes pendientes/)
   const coordinator = await readFile(join(skills, "investiga", "SKILL.md"), "utf8")
+  const publication = await readFile(join(skills, "contrato", "references", "publicacion.md"), "utf8")
+  assert.match(coordinator, /Guardado interno de la síntesis/)
+  assert.match(publication, /usa exclusivamente el publicador `write_report_pair`/)
+  assert.match(publication, /No lo sustituyas por `write`, edición, parches, shell/)
+  assert.match(publication, /Para los informes de lectores y los índices, si falta publicador compatible/)
   assert.doesNotMatch(coordinator, /contenido completo solo de las partes sin guardado confirmado/)
   for (const name of ["lee-codigo", "lee-docs"]) {
     const reader = await readFile(join(skills, name, "SKILL.md"), "utf8")

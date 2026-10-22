@@ -22,10 +22,10 @@ Solo se crean los informes cuyo guardado está habilitado. Los publicadores cons
 1. El coordinador resuelve las fuentes y la investigación activa. En la misma conversación conserva carpeta e identificador; abre otra por petición explícita del usuario. Una conversación nueva comienza otra investigación por defecto.
 2. Cada lector investiga en solo lectura y publica su informe completo mediante su publicador acotado, si dispone de él. En contexto compartido o sin ese publicador, el coordinador realiza el guardado.
 3. El coordinador contrasta las evidencias e integra revisiones puntuales. Los cambios materiales se incorporan al documento consolidado de cada rol, con hallazgos, citas y límites coherentes.
-4. El coordinador publica la síntesis consolidada en `resumen-ejecutivo.md` e `informe-detallado.md`, enlazando los informes existentes. Las preguntas posteriores amplían los mismos documentos: se conserva lo válido y se sustituye lo corregido.
+4. El coordinador publica la síntesis consolidada exclusivamente con `write_report_pair` en `resumen-ejecutivo.md` e `informe-detallado.md`, enlazando los informes existentes. Si falta el publicador o falla, deja ese guardado pendiente, sin sustituirlo por escritura genérica. Las preguntas posteriores amplían los mismos documentos: se conserva lo válido y se sustituye lo corregido.
 5. El publicador mantiene el `indice.md` local con tema, fuentes y entregables vigentes; en escritura nativa lo mantiene el coordinador.
 6. Al cerrar la respuesta, el coordinador actualiza y verifica el [índice global](../.apm/skills/contrato/references/indice-sesiones.md) mediante herramientas nativas. Cada pregunta de investigación tiene fecha y enlace a una carpeta con algún entregable confirmado; las ampliaciones apuntan a la misma carpeta. Una pregunta ya cubierta se registra sin republicar documentos idénticos.
-7. La respuesta anuncia solo archivos confirmados y distingue pendientes por informe e índice. Un fallo del índice global conserva los documentos guardados. Sin guardado se entrega el contenido en conversación, sin carpetas ni entradas vacías.
+7. La respuesta del coordinador contesta únicamente a la pregunta; el guardado de sus dos informes es interno y sus rutas se reservan para petición expresa. Un fallo de guardado solicitado o del índice global se comunica en una nota breve, conservando los documentos confirmados. Sin guardado se responde igualmente, sin volcar informes ni crear carpetas o entradas vacías.
 
 ## Garantías de escritura
 

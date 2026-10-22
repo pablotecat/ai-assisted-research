@@ -38,7 +38,7 @@ try {
     const command = target === "opencode" ? join(host, ".opencode", "commands", "setup.md") : join(host, ".github", "prompts", "setup.prompt.md")
     assert.match(await readFile(command, "utf8"), /Carga la skill `setup`/)
     const installed = join(host, "apm_modules", "_local", "package")
-    for (const path of ["opencode.json", "plugin/research.ts"])
+    for (const path of ["opencode.json", "plugin/research.ts", "lib/opencode-v2.ts"])
       assert.equal(await readFile(join(installed, path), "utf8"), await readFile(join(source, path), "utf8"))
     for (const name of ["boards.md", "documentos-locales.md"])
       assert.equal(await readFile(join(skills, "lee-docs", "references", name), "utf8"), await readFile(join(source, ".apm", "skills", "lee-docs", "references", name), "utf8"))
